@@ -82,12 +82,96 @@ public class APILogic
             case "GetOfferById": jsonResponse = GetOfferById(objProp); break;
             case "EmailTest": jsonResponse = TestEmail(objProp); break;
             case "DownloadExcel":jsonResponse = DownloadOrderExcel(objProp);break;
+            case "GetFrequentlyBoughtProducts": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
+            case "GetPreviouslyOrderedProducts": jsonResponse = GetPreviouslyOrderedProducts(objProp); break;
 
         }
         JavaScriptSerializer serializer = new JavaScriptSerializer();
         serializer.MaxJsonLength = Int32.MaxValue;
         return serializer.Serialize(jsonResponse);
     }
+
+    public List<ProductListRoot> GetFrequentlyBoughtProducts(Property objProp)
+    {
+        string path = ConfigurationManager.AppSettings["ProductPath"];
+        string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+        int pageNumber = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "pageNumber", 1);
+        int pageCount = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "pageCount", 10);
+        List<ProductListRoot> objProvider = new List<ProductListRoot>();
+        DataSet dsProvider = blogs.GetFrequentlyBoughtProducts(pageCount, pageNumber);
+        try
+        {
+            DataTable dtProvider = new DataTable("OrdersList");
+            dtProvider = dsProvider.Tables[0];
+            var c = (from x in dtProvider.AsEnumerable()
+                     select new ProductListRoot
+                     {
+                         ProductId = Convert.ToString(x["pk_product_id"]),
+                         ItemCode = Convert.ToString(x["ItemCode"]),
+                         ItemName = Convert.ToString(x["ItemName"]),
+                         FrgnName = Convert.ToString(x["FrgnName"]),
+                         OnHand = Convert.ToString(x["OnHand"]),
+                         Available = Convert.ToString(x["Available"]),
+                         MRP = Convert.ToString(x["MRP"]),
+                         GST = Convert.ToString(x["F_1"]),
+                         PTR = Convert.ToString(x["F_2"]),
+                         F_3 = Convert.ToString(x["F_3"]),
+                         F_4 = Convert.ToString(x["F_4"]),
+                         F_5 = Convert.ToString(x["F_5"]),
+                         Image = baseUrl + path + Convert.ToString(x["prod_images"]),
+                     });
+            objProvider = c.ToList();
+        }
+        catch (Exception ex)
+        {
+            objProp.Result = ex.Message;
+        }
+        return objProvider;
+    }
+
+    public List<ProductListRoot> GetPreviouslyOrderedProducts(Property objProp)
+    {
+        string path = ConfigurationManager.AppSettings["ProductPath"];
+        string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+        int UserID = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 1);
+        int pageNumber = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "pageNumber", 1);
+        int pageCount = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "pageCount", 10);
+
+        List<ProductListRoot> objProvider = new List<ProductListRoot>();
+        DataSet dsProvider = blogs.GetPreviouslyOrderedProducts(UserID, pageCount, pageNumber);
+        try
+        {
+            DataTable dtProvider = new DataTable("OrdersList");
+            dtProvider = dsProvider.Tables[0];
+            var c = (from x in dtProvider.AsEnumerable()
+                     select new ProductListRoot
+                     {
+                         ProductId = Convert.ToString(x["pk_product_id"]),
+                         ItemCode = Convert.ToString(x["ItemCode"]),
+                         ItemName = Convert.ToString(x["ItemName"]),
+                         FrgnName = Convert.ToString(x["FrgnName"]),
+                         OnHand = Convert.ToString(x["OnHand"]),
+                         Available = Convert.ToString(x["Available"]),
+                         MRP = Convert.ToString(x["MRP"]),
+                         GST = Convert.ToString(x["F_1"]),
+                         PTR = Convert.ToString(x["F_2"]),
+                         F_3 = Convert.ToString(x["F_3"]),
+                         F_4 = Convert.ToString(x["F_4"]),
+                         F_5 = Convert.ToString(x["F_5"]),
+                         Image = baseUrl + path + Convert.ToString(x["prod_images"]),
+                     });
+            objProvider = c.ToList();
+        }
+        catch (Exception ex)
+        {
+            objProp.Result = ex.Message;
+        }
+        return objProvider;
+    }
+
+
+
+
     public Stream DownloadOrderExcel(Property objProp)
     {
         try

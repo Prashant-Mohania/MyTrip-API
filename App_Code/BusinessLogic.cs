@@ -1017,4 +1017,23 @@ public class BusinessLogic
         }
         return objProp.DataTable;
     }
+
+    public DataSet GetFrequentlyBoughtProducts(int pageCount = 1, int pageNumber = 10)
+    {
+        MySqlParameter[] para = new MySqlParameter[2];
+        para[0] = new MySqlParameter("PageNumber", pageNumber);
+        para[1] = new MySqlParameter("PageCount", pageCount);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetFrequentlyBoughtProducts", para);
+        return ds;
+    }
+
+    public DataSet GetPreviouslyOrderedProducts(int UserID, int pageCount = 1, int pageNumber = 10)
+    {
+        MySqlParameter[] para = new MySqlParameter[3];
+        para[0] = new MySqlParameter("UserID", UserID);
+        para[1] = new MySqlParameter("PageNumber", pageNumber);
+        para[2] = new MySqlParameter("PageCount", pageCount);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetPreviouslyOrderedProducts", para);
+        return ds;
+    }
 }
