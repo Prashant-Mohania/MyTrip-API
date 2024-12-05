@@ -1,0 +1,11 @@
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_zlOrderList`(_orderId varchar(50))
+BEGIN
+              if exists(select `fk_userID` from `zeeorder_details` where `zl_order_ID`=_orderId) then 
+                  select 'Y' as 'id','List Found' as 'Result',
+                  `pk_orderDet_id` as ordid,`fk_userID` as uid,`zl_order_ID` as orderID,`zl_productName` as ProductName,`zl_count` as Counts,
+                  `zl_mrp` as mrp,(CASE `zl_status` WHEN 'P' THEN 'Accept' WHEN 'R' THEN 'Cancel' WHEN 'N' THEN 'Remove' ELSE 'ETC' END) as 'Status',`zl_indate` as 'Date',
+                  `zl_totalAmnt` as 'Tamount', `ptr` as ptr, `gst` as gst, `offer_qty` as offer_qty from `zeeorder_details` where `zl_order_ID`=_orderId;
+                   else
+                SELECT 'N' AS 'id','List Not Found' AS 'Result';
+                  end if;
+	END
