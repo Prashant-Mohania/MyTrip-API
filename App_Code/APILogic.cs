@@ -17,6 +17,7 @@ using DocumentFormat.OpenXml.Vml;
 using DataTable = System.Data.DataTable;
 using Formatting = Newtonsoft.Json.Formatting;
 using Path = System.IO.Path;
+using System.Text.RegularExpressions;
 
 /// <summary>
 /// Summary description for BusinessLogic
@@ -81,14 +82,20 @@ public class APILogic
             case "DeleteOffer": jsonResponse = DeleteOffer(objProp); break;
             case "GetOfferById": jsonResponse = GetOfferById(objProp); break;
             case "EmailTest": jsonResponse = TestEmail(objProp); break;
-            case "DownloadExcel":jsonResponse = DownloadOrderExcel(objProp);break;
+            case "DownloadExcel": jsonResponse = DownloadOrderExcel(objProp); break;
             case "GetFrequentlyBoughtProducts": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
             case "GetPreviouslyOrderedProducts": jsonResponse = GetPreviouslyOrderedProducts(objProp); break;
+            case "GetNewArrivals": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
+            case "GetReturnProducts": jsonResponse = GetReturnProducts(objProp); break;
+            case "AddProductsReturn": jsonResponse = AddProductsReturn(objProp); break;
+
 
         }
-        JavaScriptSerializer serializer = new JavaScriptSerializer();
-        serializer.MaxJsonLength = Int32.MaxValue;
-        return serializer.Serialize(jsonResponse);
+        //JavaScriptSerializer serializer = new JavaScriptSerializer();
+        //serializer.MaxJsonLength = Int32.MaxValue;
+        //return serializer.Serialize(jsonResponse);
+
+        return JsonConvert.SerializeObject(jsonResponse);
     }
 
     public List<ProductListRoot> GetFrequentlyBoughtProducts(Property objProp)
@@ -116,7 +123,7 @@ public class APILogic
                          GST = Convert.ToString(x["F_1"]),
                          PTR = Convert.ToString(x["F_2"]),
                          F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Convert.ToString(x["F_4"]),
+                         F_4 = Regex.Match(Convert.ToString(x["F_4"]), @"\d+").Value,
                          F_5 = Convert.ToString(x["F_5"]),
                          Image = baseUrl + path + Convert.ToString(x["prod_images"]),
                      });
@@ -156,7 +163,7 @@ public class APILogic
                          GST = Convert.ToString(x["F_1"]),
                          PTR = Convert.ToString(x["F_2"]),
                          F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Convert.ToString(x["F_4"]),
+                         F_4 = Regex.Match(Convert.ToString(x["F_4"]), @"\d+").Value,
                          F_5 = Convert.ToString(x["F_5"]),
                          Image = baseUrl + path + Convert.ToString(x["prod_images"]),
                      });
@@ -169,9 +176,79 @@ public class APILogic
         return objProvider;
     }
 
+    public List<ReturnProductModel> GetReturnProducts(Property objProp)
+    {
+        string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+        string path = ConfigurationManager.AppSettings["ProductPath"];
+        int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 1);
+        List<ReturnProductModel> objProvider = new List<ReturnProductModel>();
+        DataSet dsProvider = blogs.GetReturnProducts(userId);
+        try
+        {
+            DataTable dtProvider = new DataTable("OrdersList");
+            dtProvider = dsProvider.Tables[0];
+            var c = (from x in dtProvider.AsEnumerable()
+                     select new ReturnProductModel
+                     {
+                         Id = Convert.ToInt32(x["id"]),
+                         productId = Convert.ToInt32(x["ProductId"]),
+                         batchNumber = Convert.ToString(x["batchNumber"]),
+                         productName = Convert.ToString(x["productName"]),
+                         productImg = baseUrl + path + Convert.ToString(x["productImg"]),
+                         userId = Convert.ToInt32(x["UserId"]),
+                         status = Convert.ToString(x["Status"]),
+                         description = Convert.ToString(x["Description"]),
+                         CreatedAt = Convert.ToDateTime(x["CreatedAt"]),
+                     });
+            objProvider = c.ToList();
+        }
+        catch (Exception ex)
+        {
+            objProp.Result = ex.Message;
+        }
+        return objProvider;
+    }
 
+    public Dictionary<string, object> AddProductsReturn(Property objProp)
+    {
+        try
+        {
+            Dictionary<string, object> response = new Dictionary<string, object>();
 
+            string data = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "data", string.Empty);
 
+            List<ReturnProductModel> returnProducts = JsonConvert.DeserializeObject<List<ReturnProductModel>>(data);
+
+            // Validate the return products
+            var validationResult = Utils.ValidateReturnProduct(returnProducts);
+            if (!validationResult.Item1)
+            {
+                objProp.Result = string.Join(", ", validationResult.Item2);
+                response.Add("status", false);
+                response.Add("message", string.Join(", ", validationResult.Item2));
+                return response; // Convert the response to JSON
+            }
+
+            // If validation passes, perform the operation
+            blogs.AddProductsReturn(returnProducts);
+
+            // Success response
+            response.Add("status", true);
+            response.Add("message", "Products returned successfully.");
+            return response; // Convert the response to JSON
+        }
+        catch (Exception ex)
+        {
+            // Error handling
+            objProp.Result = ex.Message;
+            var errorResponse = new Dictionary<string, object>
+        {
+            { "status", false },
+            { "message", ex.Message }
+        };
+            return errorResponse; // Return error response as JSON
+        }
+    }
     public Stream DownloadOrderExcel(Property objProp)
     {
         try
@@ -217,25 +294,25 @@ public class APILogic
         }
 
         return items;
-      
+
     }
     public async Task<Emailmodel> TestEmail(Property objProp)
+    {
+        Emailmodel emailModel = new Emailmodel();
+        objProp.To = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
+        objProp.Subject = "Email Test";
+        objProp.Body = "Testing the Email";
+        try
         {
-            Emailmodel emailModel = new Emailmodel();
-            objProp.To = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
-            objProp.Subject = "Email Test";
-            objProp.Body = "Testing the Email";
-            try
-            {
-                EmailSend.SendEmail(objProp.To, objProp.Body, objProp.Subject);
-                return emailModel;
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
+            EmailSend.SendEmail(objProp.To, objProp.Body, objProp.Subject);
+            return emailModel;
         }
+        catch (Exception ex)
+        {
+
+            throw ex;
+        }
+    }
 
     public AgentLogins Shoplogin(Property objProp)
     {
@@ -723,7 +800,7 @@ public class APILogic
                          GST = Convert.ToString(x["F_1"]),
                          PTR = Convert.ToString(x["F_2"]),
                          F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Convert.ToString(x["F_4"]),
+                         F_4 = Regex.Match(Convert.ToString(x["F_4"]), @"\d+").Value,
                          F_5 = Convert.ToString(x["F_5"]),
                          Image = baseUrl + path + Convert.ToString(x["prod_images"]),
                          Offers = Convert.ToString(x["offers"])
@@ -1833,7 +1910,7 @@ public class APILogic
                         objProduct.GST = Convert.ToString(dr["F_1"]);
                         objProduct.PTR = Convert.ToString(dr["F_2"]);
                         objProduct.F_3 = Convert.ToString(dr["F_3"]);
-                        objProduct.F_4 = Convert.ToString(dr["F_4"]);
+                        objProduct.F_4 = Regex.Match(Convert.ToString(dr["F_4"]), @"\d+").Value;
                         objProduct.F_5 = Convert.ToString(dr["F_5"]);
                         objProduct.Image = baseUrl + path + Convert.ToString(dr["ImageUrl"]);
                     }
@@ -2092,7 +2169,7 @@ public class APILogic
                         F_1 = objProp.F1,
                         F_2 = objProp.F2,
                         F_3 = objProp.F3,
-                        F_4 = objProp.F4,
+                        F_4 = Regex.Match(objProp.F4, @"\d+").Value,
                         F_5 = objProp.F5,
                     });
                 }
@@ -2391,6 +2468,20 @@ public class APILogic
         public string Status { get; set; }
         public string ImageUrl { get; set; }
 
+    }
+
+    public class ReturnProductModel
+    {
+        public int Id { get; set; }
+        public int productId { get; set; }
+        public string batchNumber { get; set; }
+        public string productName { get; set; } = null;
+        public string productImg { get; set; } = null;
+        public string status { get; set; } = "Pending";
+        public string description { get; set; } = "";
+        public int userId { get; set; }
+        public int quantity { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
     //public class SAPProductLog
     //{

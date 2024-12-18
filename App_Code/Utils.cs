@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
+using static APILogic;
 
 /// <summary>
 /// Summary description for Utils
@@ -33,5 +34,13 @@ public class Utils
             // Return defaultValue in case of any conversion error
             return defaultValue;
         }
+    }
+
+    public static Tuple<bool, List<string>> ValidateReturnProduct(List<ReturnProductModel> products)
+    {
+        List<string> valMessages = new List<string>();
+        if (products.Any(p => p.quantity < 1))
+            valMessages.Add("Quantity cannot be less than 1");
+        return Tuple.Create<bool, List<string>>(valMessages.Count == 0, valMessages);
     }
 }

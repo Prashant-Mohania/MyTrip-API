@@ -1036,4 +1036,28 @@ public class BusinessLogic
         var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetPreviouslyOrderedProducts", para);
         return ds;
     }
+    
+    public DataSet GetReturnProducts(int UserID)
+    {
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("inputUserId", UserID);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetReturnProducts", para);
+        return ds;
+    }
+    public void AddProductsReturn(List<ReturnProductModel> products)
+    {
+        // Build the bulk INSERT query
+        List<string> rows = new List<string>();
+        foreach (var product in products)
+        {
+            string row = $"({product.productId}, {product.batchNumber}, '{product.status}', '{product.description}', {product.userId}, {product.quantity}, '{product.CreatedAt:yyyy-MM-dd HH:mm:ss}')";
+            rows.Add(row);
+        }
+
+        string bulkInsertQuery = $@"
+                INSERT INTO ReturnProduct (productId, batchNumber, Status, description, userId, quantity, CreatedAt) 
+                VALUES {string.Join(", ", rows)};";
+
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, bulkInsertQuery);
+    }
 }
