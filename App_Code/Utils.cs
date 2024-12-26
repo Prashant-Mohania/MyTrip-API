@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
+using System.Text.RegularExpressions;
 using static APILogic;
 
 /// <summary>
@@ -42,5 +42,24 @@ public class Utils
         if (products.Any(p => p.quantity < 1))
             valMessages.Add("Quantity cannot be less than 1");
         return Tuple.Create<bool, List<string>>(valMessages.Count == 0, valMessages);
+    }
+
+    public static string FormatProductF4(string input)
+    {
+        // Define a regex pattern to match the required parts
+        string pattern = @"^(\d+)\.?\d*-?(.*)$";
+
+        // Use Regex.Match to extract groups
+        var match = Regex.Match(input, pattern);
+        if (match.Success)
+        {
+            string numberPart = match.Groups[1].Value; // Extract the number before '.'
+            string textPart = match.Groups[2].Value;   // Extract the text after '-'
+
+            // Combine the results
+            return string.IsNullOrEmpty(textPart) ? numberPart : $"{numberPart} - {textPart}";
+        }
+
+        return input; // Return the original input if it doesn't match
     }
 }

@@ -7,7 +7,6 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Web;
-using System.Web.Script.Serialization;
 using System.Web.UI.WebControls;
 using Newtonsoft.Json.Linq;
 using System.Collections;
@@ -17,7 +16,6 @@ using DocumentFormat.OpenXml.Vml;
 using DataTable = System.Data.DataTable;
 using Formatting = Newtonsoft.Json.Formatting;
 using Path = System.IO.Path;
-using System.Text.RegularExpressions;
 
 /// <summary>
 /// Summary description for BusinessLogic
@@ -123,7 +121,7 @@ public class APILogic
                          GST = Convert.ToString(x["F_1"]),
                          PTR = Convert.ToString(x["F_2"]),
                          F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Regex.Match(Convert.ToString(x["F_4"]), @"\d+").Value,
+                         F_4 = Utils.FormatProductF4(Convert.ToString(x["F_4"])),
                          F_5 = Convert.ToString(x["F_5"]),
                          Image = baseUrl + path + Convert.ToString(x["prod_images"]),
                      });
@@ -163,7 +161,7 @@ public class APILogic
                          GST = Convert.ToString(x["F_1"]),
                          PTR = Convert.ToString(x["F_2"]),
                          F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Regex.Match(Convert.ToString(x["F_4"]), @"\d+").Value,
+                         F_4 = Utils.FormatProductF4(Convert.ToString(x["F_4"])),
                          F_5 = Convert.ToString(x["F_5"]),
                          Image = baseUrl + path + Convert.ToString(x["prod_images"]),
                      });
@@ -800,7 +798,7 @@ public class APILogic
                          GST = Convert.ToString(x["F_1"]),
                          PTR = Convert.ToString(x["F_2"]),
                          F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Regex.Match(Convert.ToString(x["F_4"]), @"\d+").Value,
+                         F_4 = Utils.FormatProductF4(Convert.ToString(x["F_4"])),
                          F_5 = Convert.ToString(x["F_5"]),
                          Image = baseUrl + path + Convert.ToString(x["prod_images"]),
                          Offers = Convert.ToString(x["offers"])
@@ -1910,7 +1908,7 @@ public class APILogic
                         objProduct.GST = Convert.ToString(dr["F_1"]);
                         objProduct.PTR = Convert.ToString(dr["F_2"]);
                         objProduct.F_3 = Convert.ToString(dr["F_3"]);
-                        objProduct.F_4 = Regex.Match(Convert.ToString(dr["F_4"]), @"\d+").Value;
+                        objProduct.F_4 = Utils.FormatProductF4(Convert.ToString(dr["F_4"]));
                         objProduct.F_5 = Convert.ToString(dr["F_5"]);
                         objProduct.Image = baseUrl + path + Convert.ToString(dr["ImageUrl"]);
                     }
@@ -2169,7 +2167,7 @@ public class APILogic
                         F_1 = objProp.F1,
                         F_2 = objProp.F2,
                         F_3 = objProp.F3,
-                        F_4 = Regex.Match(objProp.F4, @"\d+").Value,
+                        F_4 = Utils.FormatProductF4(objProp.F4),
                         F_5 = objProp.F5,
                     });
                 }
