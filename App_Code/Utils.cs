@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Web;
 using static APILogic;
 
 /// <summary>
@@ -61,5 +66,62 @@ public class Utils
         }
 
         return input; // Return the original input if it doesn't match
+    }
+
+    public static string SaveRequestedImage(HttpPostedFile file, string configPath)
+    {
+        if (file == null || file.ContentLength == 0)
+        {
+            return null;
+        }
+
+        string folderPath = GenerateFilePath(configPath);
+
+        if (!Directory.Exists(folderPath))
+        {
+            Directory.CreateDirectory(folderPath);
+        }
+
+        string fileName = Path.GetFileName(file.FileName);
+        string filePath = Path.Combine(folderPath, fileName);
+        file.SaveAs(filePath);
+        return fileName;
+    }
+
+    public static string GenerateFilePath(string pathName)
+    {
+        string path = ConfigurationManager.AppSettings[pathName];
+        string filePath = AppDomain.CurrentDomain.BaseDirectory + path;
+
+        return filePath;
+    }
+
+    // convert DataTable to List
+    public static List<T> ConvertDataTable<T>(DataTable dt)
+    {
+        List<T> data = new List<T>();
+        foreach (DataRow row in dt.Rows)
+        {
+            T item = _GetItem<T>(row);
+            data.Add(item);
+        }
+        return data;
+    }
+
+    private static T _GetItem<T>(DataRow dr)
+    {
+        Type temp = typeof(T);
+        T obj = Activator.CreateInstance<T>();
+        foreach (DataColumn column in dr.Table.Columns)
+        {
+            foreach (PropertyInfo pro in temp.GetProperties())
+            {
+                if (pro.Name == column.ColumnName)
+                    pro.SetValue(obj, dr[column.ColumnName], null);
+                else
+                    continue;
+            }
+        }
+        return obj;
     }
 }

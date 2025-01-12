@@ -131,7 +131,7 @@ public class BusinessLogic
         {
             objProp.Query = "sp_OfferList";
             MySqlParameter[] para = new MySqlParameter[1];
-            para[0] = new MySqlParameter("p_status",objProp.Status);
+            para[0] = new MySqlParameter("p_status", objProp.Status);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
         catch (Exception ex)
@@ -282,7 +282,7 @@ public class BusinessLogic
         }
         return objProp.DataSet;
     }
-    
+
     //public DataSet CreateLog(Property objProp)
     //{
     //    try
@@ -324,8 +324,18 @@ public class BusinessLogic
     {
         try
         {
+
+            string path = ConfigurationManager.AppSettings["ImagePath"];
+            string filePath = AppDomain.CurrentDomain.BaseDirectory + path;
+            string file = filePath + objProp.image;
+
+            SaveImageToFolder(filePath);
+            file = Path.GetFileName(file);
+
+
+
             objProp.Query = "sp_Addoffer";
-            MySqlParameter[] para = new MySqlParameter[12];
+            MySqlParameter[] para = new MySqlParameter[13];
 
             para[0] = new MySqlParameter("Name", objProp.Offer_Name);
             para[1] = new MySqlParameter("Description", objProp.Offer_Description);
@@ -336,11 +346,12 @@ public class BusinessLogic
 
             string productIdsJson = JsonConvert.SerializeObject(objProp.ProductIds);
             para[6] = new MySqlParameter("ProductIdsJSON", productIdsJson);
-            para[7] = new MySqlParameter("Status",objProp.Offer_Status);
+            para[7] = new MySqlParameter("Status", objProp.Offer_Status);
             para[8] = new MySqlParameter("CreatedBy", objProp.CreatedBy);
             para[9] = new MySqlParameter("CreatedOn", objProp.CreatedDate);
-            para[10] = new MySqlParameter("UpdatedBy",objProp.UpdatedBy);
+            para[10] = new MySqlParameter("UpdatedBy", objProp.UpdatedBy);
             para[11] = new MySqlParameter("UpdatedOn", objProp.UpdatedDate);
+            para[12] = new MySqlParameter("Image", file);
 
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
@@ -1036,7 +1047,7 @@ public class BusinessLogic
         var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetPreviouslyOrderedProducts", para);
         return ds;
     }
-    
+
     public DataSet GetReturnProducts(int UserID)
     {
         MySqlParameter[] para = new MySqlParameter[1];
@@ -1059,5 +1070,92 @@ public class BusinessLogic
                 VALUES {string.Join(", ", rows)};";
 
         DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, bulkInsertQuery);
+    }
+
+    public bool DeleteReturnProduct(int id, int userid)
+    {
+        string query = $@"DELETE FROM ReturnProduct WHERE id = {id} AND userId = {userid} AND Status != 'Approve';";
+        return DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query) > 0;
+    }
+
+
+    public void AddCategory(CategoryModel category)
+    {
+        string query = $@"
+            INSERT INTO Category (Name, Image, CreatedAt, UpdatedAt) 
+            VALUES ('{category.Name}', '{category.Image}', '{category.createdAt}', '{category.updatedAt}');";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public void UpdateCategory(CategoryModel category)
+    {
+        string query = $@"
+            UPDATE Category 
+            SET Name = '{category.Name}', Image = '{category.Image}', UpdatedAt = '{category.updatedAt}' 
+            WHERE Id = {category.Id};";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public void DeleteCategory(int categoryId)
+    {
+        string query = $@"
+            DELETE FROM Category 
+            WHERE Id = {categoryId} or ParentId = {categoryId};";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public DataSet GetCategories()
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM Category Where ParentId IS NULL;");
+        return ds;
+    }
+
+    public DataSet GetCategoryById(int categoryId)
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $"SELECT * FROM Category WHERE Id = {categoryId}");
+        return ds;
+    }
+
+    public void AddSubCategory(CategoryModel subCategory)
+    {
+        string query = $@"
+            INSERT INTO Category (Name, Image, ParentId, CreatedAt, UpdatedAt) 
+            VALUES ('{subCategory.Name}', '{subCategory.Image}', {subCategory.ParentId}, '{subCategory.createdAt}', '{subCategory.updatedAt}');";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public void UpdateSubCategory(CategoryModel subCategory)
+    {
+        string query = $@"
+            UPDATE Category 
+            SET Name = '{subCategory.Name}', Image = '{subCategory.Image}', ParentId = '{subCategory.ParentId}', UpdatedAt = '{subCategory.updatedAt}' 
+            WHERE Id = {subCategory.Id};";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public void DeleteSubCategory(int subCategoryId)
+    {
+        string query = $@"
+            DELETE FROM Category 
+            WHERE Id = {subCategoryId};";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public DataSet GetSubCategories()
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM Category WHERE ParentId IS NOT NULL");
+        return ds;
+    }
+
+    public DataSet GetSubCategoryById(int subCategoryId)
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $"SELECT * FROM Category WHERE Id = {subCategoryId}");
+        return ds;
+    }
+
+    public DataSet GetSubCategoriesByParentId(int parentCategoryId)
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $"SELECT * FROM Category WHERE ParentId = {parentCategoryId}");
+        return ds;
     }
 }

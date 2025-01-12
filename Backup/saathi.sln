@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33424.131
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "api.zeelabgeneric.in", ".", "{A42477BE-5BDE-4C3C-B3E4-2552A2A40833}"
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "zeelab-api", ".", "{A42477BE-5BDE-4C3C-B3E4-2552A2A40833}"
 	ProjectSection(WebsiteProperties) = preProject
 		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.7.2"
 		ProjectReferences = "{09e91fa0-32f0-49f9-98d1-c1c46de75f3a}|ProductApplication.dll;"
@@ -22,6 +22,7 @@ Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "api.zeelabgeneric.in", ".",
 		Release.AspNetCompiler.FixedNames = "false"
 		Release.AspNetCompiler.Debug = "False"
 		VWDPort = "55987"
+		SlnRelativePath = "..\zeelab-api\"
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ProductApplication", "ProductApplication\ProductApplication.csproj", "{EB2B35EB-650F-4950-B915-DDC7EE2B44E1}"

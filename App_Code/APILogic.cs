@@ -16,6 +16,8 @@ using DocumentFormat.OpenXml.Vml;
 using DataTable = System.Data.DataTable;
 using Formatting = Newtonsoft.Json.Formatting;
 using Path = System.IO.Path;
+using System.CodeDom;
+using DocumentFormat.OpenXml.Drawing;
 
 /// <summary>
 /// Summary description for BusinessLogic
@@ -86,6 +88,14 @@ public class APILogic
             case "GetNewArrivals": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
             case "GetReturnProducts": jsonResponse = GetReturnProducts(objProp); break;
             case "AddProductsReturn": jsonResponse = AddProductsReturn(objProp); break;
+            case "DeleteProductsReturn": jsonResponse = DeleteReturnProduct(objProp); break;
+            case "AddCategory": jsonResponse = AddCategory(objProp); break;
+            case "GetCategory": jsonResponse = GetCategories(objProp); break;
+            case "GetCategoryById": jsonResponse = GetCategoryById(objProp); break;
+            case "GetSubCategory": jsonResponse = GetSubCategory(objProp); break;
+            case "AddSubCategory": jsonResponse = AddSubCategory(objProp); break;
+            case "GetSubCategoryById": jsonResponse = GetSubCategoryById(objProp); break;
+
 
 
         }
@@ -197,6 +207,7 @@ public class APILogic
                          status = Convert.ToString(x["Status"]),
                          description = Convert.ToString(x["Description"]),
                          CreatedAt = Convert.ToDateTime(x["CreatedAt"]),
+                         quantity = Convert.ToInt32(x["quantity"]),
                      });
             objProvider = c.ToList();
         }
@@ -245,6 +256,37 @@ public class APILogic
             { "message", ex.Message }
         };
             return errorResponse; // Return error response as JSON
+        }
+    }
+
+    public ResponseModel<bool> DeleteReturnProduct(Property objProp)
+    {
+        try
+        {
+            int id = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "id", 0);
+            int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+
+            if (userId == 0)
+            {
+                return new ResponseModel<bool>(message: "Invalid User ID");
+            }
+            if (id == 0)
+            {
+                return new ResponseModel<bool>(message: "Invalid ID");
+            }
+
+            if (blogs.DeleteReturnProduct(id: id, userid: userId))
+            {
+                return new ResponseModel<bool>(data: true, message: "Successfully Deleted"); ;
+            }
+            else
+            {
+                return new ResponseModel<bool>(message: "Product not found or It's Approved");
+            }
+        }
+        catch (Exception ex)
+        {
+            return new ResponseModel<bool>(message: ex.Message);
         }
     }
     public Stream DownloadOrderExcel(Property objProp)
@@ -528,7 +570,9 @@ public class APILogic
                              {
                                  OfferId = JObject.Parse(x["Offer_Details"].ToString())["offerid"].ToString(),
                                  OfferName = JObject.Parse(x["Offer_Details"].ToString())["offername"].ToString(),
-                                 OfferedProducts = Convert.ToInt32(JObject.Parse(x["Offer_Details"].ToString())["offeredproducts"])
+                                 OfferedProducts = Convert.ToInt32(JObject.Parse(x["Offer_Details"].ToString())["offeredproducts"]),
+                                 offerQty = Convert.ToInt32(JObject.Parse(x["Offer_Details"].ToString())["offerQty"]),
+                                 eligibilityQty = Convert.ToInt32(JObject.Parse(x["Offer_Details"].ToString())["eligibilityQty"]),
                              } : null
                      });
 
@@ -832,6 +876,8 @@ public class APILogic
                          EligibilityQty = Convert.ToString(x["eligibilityQty"]),
                          OfferQty = Convert.ToString(x["offerQty"]),
                          offerstatus = Convert.ToString(x["status"]),
+                         Image = Convert.ToString(x["image"]),
+                         productId = Convert.ToString(x["product_id"]),
                          Status = "Successfully listed",
                          Result = "Sucess",
                      });
@@ -864,7 +910,7 @@ public class APILogic
                          EligibilityQty = Convert.ToString(x["eligibilityQty"]),
                          OfferQty = Convert.ToString(x["offerQty"]),
                          offerstatus = Convert.ToString(x["status"]),
-                         productIds = x["productIds"] != DBNull.Value ? Convert.ToString(x["productIds"]) : null,
+                         productId = x["productId"] != DBNull.Value ? Convert.ToString(x["productId"]) : null,
                          Status = "Successfully listed",
                          Result = "Sucess",
                      });
@@ -888,6 +934,7 @@ public class APILogic
         var status = HttpContext.Current.Request.Form["status"];
         var createdby = HttpContext.Current.Request.Form["createdBy"];
         var updatedby = HttpContext.Current.Request.Form["updatedBy"];
+        var image = HttpContext.Current.Request.Files["image"].FileName;
 
         List<int> productIds = GetProductIdsFromForm();
         OfferListRoot offerListResponse = new OfferListRoot();
@@ -907,6 +954,7 @@ public class APILogic
             objProp.CreatedDate = DateTime.Now;
             objProp.UpdatedBy = updatedby;
             objProp.UpdatedDate = DateTime.Now;
+            objProp.image = image;
 
             objProp.DataSet = blogs.CreateOffer(objProp);
             if (objProp.DataSet.Tables[0].Rows.Count > 0)
@@ -2256,6 +2304,283 @@ public class APILogic
         return objOrder;
     }
 
+    public ResponseModel<CategoryModel> AddCategory(Property objProp)
+    {
+        ResponseModel<CategoryModel> response = null;
+        try
+        {
+            var image = HttpContext.Current.Request.Files["image"];
+            string name = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "name", "");
+            DateTime createdDate = DateTime.Now;
+            DateTime updateDate = DateTime.Now;
+
+            if (string.IsNullOrEmpty(name))
+            {
+                response = new ResponseModel<CategoryModel>("Category name is required");
+                return response;
+            }
+
+            CategoryModel category = new CategoryModel
+            {
+                Name = name,
+                Image = Utils.SaveRequestedImage(image, "CategoryPath"),
+                createdAt = createdDate,
+                updatedAt = updateDate
+            };
+
+            blogs.AddCategory(category);
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<CategoryModel>(ex.Message);
+        }
+        return response;
+    }
+
+    // add sub category
+    public ResponseModel<CategoryModel> AddSubCategory(Property objProp)
+    {
+        ResponseModel<CategoryModel> response = null;
+        try
+        {
+            var image = HttpContext.Current.Request.Files["image"];
+            string name = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "name", "");
+            string categoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "categoryId", "");
+            DateTime createdDate = DateTime.Now;
+            DateTime updateDate = DateTime.Now;
+            if (string.IsNullOrEmpty(name))
+            {
+                response = new ResponseModel<CategoryModel>("Sub Category name is required");
+                return response;
+            }
+            if (string.IsNullOrEmpty(categoryId))
+            {
+                response = new ResponseModel<CategoryModel>("Category Id is required");
+                return response;
+            }
+            CategoryModel subCategory = new CategoryModel
+            {
+                Name = name,
+                Image = Utils.SaveRequestedImage(image, "CategoryPath"),
+                ParentId = Convert.ToInt32(categoryId),
+                createdAt = createdDate,
+                updatedAt = updateDate
+            };
+            blogs.AddSubCategory(subCategory);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<CategoryModel>(ex.Message);
+        }
+        return response;
+    }
+
+    // get all categories
+    public ResponseModel<List<CategoryModel>> GetCategories(Property objProp)
+    {
+        try
+        {
+            // Fetch data
+            DataSet data = blogs.GetCategories();
+            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
+            {
+                return new ResponseModel<List<CategoryModel>>(new List<CategoryModel>(), "No categories found");
+            }
+
+            // Retrieve configurations
+            string path = ConfigurationManager.AppSettings["CategoryPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+
+            // Convert data to CategoryModel
+            var categories = data.Tables[0].AsEnumerable().Select(row => new CategoryModel
+            {
+                Id = row.Field<int>("Id"),
+                Name = row.Field<string>("Name"),
+                Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
+                ParentId = row.Field<int?>("ParentId"),
+                IsActive = row.Field<bool>("IsActive"),
+                createdAt = row.Field<DateTime>("CreatedAt"),
+                updatedAt = row.Field<DateTime>("UpdatedAt")
+            }).ToList();
+
+            // Return successful response
+            return new ResponseModel<List<CategoryModel>>(categories, "Categories fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            // Handle exceptions gracefully
+            return new ResponseModel<List<CategoryModel>>(ex.Message);
+        }
+    }
+
+    // get all sub categories
+    public ResponseModel<List<CategoryModel>> GetSubCategory(Property objProp)
+    {
+        ResponseModel<List<CategoryModel>> response = null;
+        try
+        {
+            DataSet data = blogs.GetSubCategories();
+            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
+            {
+                return new ResponseModel<List<CategoryModel>>(new List<CategoryModel>(), "No categories found");
+            }
+
+            // Retrieve configurations
+            string path = ConfigurationManager.AppSettings["CategoryPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+
+            // Convert data to CategoryModel
+            var categories = data.Tables[0].AsEnumerable().Select(row => new CategoryModel
+            {
+                Id = row.Field<int>("Id"),
+                Name = row.Field<string>("Name"),
+                Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
+                ParentId = row.Field<int?>("ParentId"),
+                IsActive = row.Field<bool>("IsActive"),
+                createdAt = row.Field<DateTime>("CreatedAt"),
+                updatedAt = row.Field<DateTime>("UpdatedAt")
+            }).ToList();
+            response = new ResponseModel<List<CategoryModel>>(categories, "Sub Categories fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<List<CategoryModel>>(ex.Message);
+        }
+        return response;
+    }
+
+    // get all sub categories by category id
+    public ResponseModel<List<CategoryModel>> GetSubCategoriesByCategoryId(Property objProp)
+    {
+        ResponseModel<List<CategoryModel>> response = null;
+        try
+        {
+            string categoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "categoryId", "");
+            if (string.IsNullOrEmpty(categoryId))
+            {
+                response = new ResponseModel<List<CategoryModel>>("Category Id is required");
+                return response;
+            }
+            DataSet data = blogs.GetSubCategoriesByParentId(Convert.ToInt32(categoryId));
+            List<CategoryModel> categories = Utils.ConvertDataTable<CategoryModel>(data.Tables[0]);
+            response = new ResponseModel<List<CategoryModel>>(categories, "Sub Categories fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<List<CategoryModel>>(ex.Message);
+        }
+        return response;
+    }
+
+    // get category by id
+    public ResponseModel<CategoryModel> GetCategoryById(Property objProp)
+    {
+        ResponseModel<CategoryModel> response = null;
+        try
+        {
+            string categoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "categoryId", "");
+            if (string.IsNullOrEmpty(categoryId))
+            {
+                response = new ResponseModel<CategoryModel>("Category Id is required");
+                return response;
+            }
+            DataSet data = blogs.GetCategoryById(Convert.ToInt32(categoryId));
+            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
+            {
+                return new ResponseModel<CategoryModel>(new CategoryModel(), "No categories found");
+            }
+
+            // Retrieve configurations
+            string path = ConfigurationManager.AppSettings["CategoryPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+
+            // Convert data to CategoryModel
+            var category = data.Tables[0].AsEnumerable().Select(row => new CategoryModel
+            {
+                Id = row.Field<int>("Id"),
+                Name = row.Field<string>("Name"),
+                Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
+                ParentId = row.Field<int?>("ParentId"),
+                IsActive = row.Field<bool>("IsActive"),
+                createdAt = row.Field<DateTime>("CreatedAt"),
+                updatedAt = row.Field<DateTime>("UpdatedAt")
+            }).First();
+            response = new ResponseModel<CategoryModel>(category, "Category fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<CategoryModel>(ex.Message);
+        }
+        return response;
+    }
+
+    // get sub category by id
+    public ResponseModel<CategoryModel> GetSubCategoryById(Property objProp)
+    {
+        ResponseModel<CategoryModel> response = null;
+        try
+        {
+            string subCategoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "subCategoryId", "");
+            if (string.IsNullOrEmpty(subCategoryId))
+            {
+                response = new ResponseModel<CategoryModel>("Sub Category Id is required");
+                return response;
+            }
+            DataSet data = blogs.GetSubCategoryById(Convert.ToInt32(subCategoryId));
+            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
+            {
+                return new ResponseModel<CategoryModel>(new CategoryModel(), "No categories found");
+            }
+
+            // Retrieve configurations
+            string path = ConfigurationManager.AppSettings["CategoryPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+
+            // Convert data to CategoryModel
+            var category = data.Tables[0].AsEnumerable().Select(row => new CategoryModel
+            {
+                Id = row.Field<int>("Id"),
+                Name = row.Field<string>("Name"),
+                Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
+                ParentId = row.Field<int?>("ParentId"),
+                IsActive = row.Field<bool>("IsActive"),
+                createdAt = row.Field<DateTime>("CreatedAt"),
+                updatedAt = row.Field<DateTime>("UpdatedAt")
+            }).First();
+            response = new ResponseModel<CategoryModel>(category, "Sub Category fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<CategoryModel>(ex.Message);
+        }
+        return response;
+    }
+
+    public class ResponseModel<T>
+    {
+        public bool Error { get; set; }
+        public string Message { get; set; }
+        public T data { get; set; }
+
+        // error response model
+        public ResponseModel(string message)
+        {
+            Error = true;
+            Message = message;
+        }
+
+        // success response model
+        public ResponseModel(T data, string message)
+        {
+            Error = false;
+            Message = message;
+            this.data = data;
+        }
+    }
+
     public class Emailmodel
     {
         public string Status { get; set; }
@@ -2281,7 +2606,7 @@ public class APILogic
     {
         public string OrderID { get; set; }
         public string Date { get; set; }
-        public decimal totalamount { get; set; }
+        public int totalamount { get; set; }
         public int Totality { get; set; }
         public string SalesQuotation { get; set; }
         public List<Product> Products { get; set; }
@@ -2346,6 +2671,8 @@ public class APILogic
         public string OfferId { get; set; }
         public string OfferName { get; set; }
         public int OfferedProducts { get; set; }
+        public int offerQty { get; set; }
+        public int eligibilityQty { get; set; }
     }
     public class AgentLogins
     {
@@ -2406,9 +2733,10 @@ public class APILogic
         public string EligibilityQty { get; set; }
         public string OfferQty { get; set; }
         public string Status { get; set; }
+        public string Image { get; set; }
         public string Result { get; set; }
         public string offerstatus { get; set; }
-        public string productIds { get; set; }
+        public string productId { get; set; }
 
     }
     public class UserOrderList
@@ -2492,5 +2820,16 @@ public class APILogic
     //    public int Total_Record { get; set; }
     //    public string Total_Inserted { get; set; }
     //}
+
+    public class CategoryModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Image { get; set; }
+        public int? ParentId { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime createdAt { get; set; }
+        public DateTime updatedAt { get; set; }
+    }
 
 }
