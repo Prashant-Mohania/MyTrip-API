@@ -18,6 +18,7 @@ using Formatting = Newtonsoft.Json.Formatting;
 using Path = System.IO.Path;
 using System.CodeDom;
 using DocumentFormat.OpenXml.Drawing;
+using Org.BouncyCastle.Bcpg.OpenPgp;
 
 /// <summary>
 /// Summary description for BusinessLogic
@@ -38,6 +39,11 @@ public class APILogic
             case "AddPopUpImage": jsonResponse = AddPopupImage(objProp); break;
             case "EditPopUpImage": jsonResponse = EditPopupImage(objProp); break;
             case "EditProduct": jsonResponse = EditProduct(objProp); break;
+            case "AddProductRequst": jsonResponse = AddProductRequst(objProp); break;
+            case "AddCategory": jsonResponse = AddCategory(objProp); break;
+            case "AddOffer": jsonResponse = AddOffer(objProp); break;
+            case "AddGiftScheme": jsonResponse = AddGiftScheme(objProp); break;
+            case "UpdateGiftScheme": jsonResponse = UpdateGiftScheme(objProp); break;
         }
         switch (objProp.Function)
         {
@@ -87,17 +93,22 @@ public class APILogic
             case "GetPreviouslyOrderedProducts": jsonResponse = GetPreviouslyOrderedProducts(objProp); break;
             case "GetNewArrivals": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
             case "GetReturnProducts": jsonResponse = GetReturnProducts(objProp); break;
+            case "GetReturnProductsAdmin": jsonResponse = GetReturnProductsAdmin(objProp); break;
+            case "UpdateReturnProductsAdmin": jsonResponse = UpdateReturnProductsAdmin(objProp); break;
             case "AddProductsReturn": jsonResponse = AddProductsReturn(objProp); break;
             case "DeleteProductsReturn": jsonResponse = DeleteReturnProduct(objProp); break;
-            case "AddCategory": jsonResponse = AddCategory(objProp); break;
+            case "DeleteCategory": jsonResponse = DeleteCategory(objProp); break;
             case "GetCategory": jsonResponse = GetCategories(objProp); break;
             case "GetCategoryById": jsonResponse = GetCategoryById(objProp); break;
-            case "GetSubCategory": jsonResponse = GetSubCategory(objProp); break;
-            case "AddSubCategory": jsonResponse = AddSubCategory(objProp); break;
-            case "GetSubCategoryById": jsonResponse = GetSubCategoryById(objProp); break;
-
-
-
+            case "GetProductByCategoryId": jsonResponse = GetProductByCategoryId(objProp); break;
+            case "AddProductInOrderSheet": jsonResponse = AddProductInOrderSheet(objProp); break;
+            case "GetOrderSheet": jsonResponse = GetOrderSheet(objProp); break;
+            case "RemoveProductFromOrderSheet": jsonResponse = RemoveProductFromOrderSheet(objProp); break;
+            case "OrderSheetToCart": jsonResponse = OrderSheetToCart(objProp); break;
+            case "getReorderProducts": jsonResponse = getReorderProducts(objProp); break;
+            case "GetProductRequests": jsonResponse = GetProductRequests(objProp); break;
+            case "GetGiftSchemes": jsonResponse = GetGiftSchemes(objProp); break;
+            case "DeleteGiftScheme": jsonResponse = DeleteGiftScheme(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -118,23 +129,7 @@ public class APILogic
         {
             DataTable dtProvider = new DataTable("OrdersList");
             dtProvider = dsProvider.Tables[0];
-            var c = (from x in dtProvider.AsEnumerable()
-                     select new ProductListRoot
-                     {
-                         ProductId = Convert.ToString(x["pk_product_id"]),
-                         ItemCode = Convert.ToString(x["ItemCode"]),
-                         ItemName = Convert.ToString(x["ItemName"]),
-                         FrgnName = Convert.ToString(x["FrgnName"]),
-                         OnHand = Convert.ToString(x["OnHand"]),
-                         Available = Convert.ToString(x["Available"]),
-                         MRP = Convert.ToString(x["MRP"]),
-                         GST = Convert.ToString(x["F_1"]),
-                         PTR = Convert.ToString(x["F_2"]),
-                         F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Utils.FormatProductF4(Convert.ToString(x["F_4"])),
-                         F_5 = Convert.ToString(x["F_5"]),
-                         Image = baseUrl + path + Convert.ToString(x["prod_images"]),
-                     });
+            var c = (from x in dtProvider.AsEnumerable() select MapProductList(x, baseUrl, path));
             objProvider = c.ToList();
         }
         catch (Exception ex)
@@ -158,23 +153,7 @@ public class APILogic
         {
             DataTable dtProvider = new DataTable("OrdersList");
             dtProvider = dsProvider.Tables[0];
-            var c = (from x in dtProvider.AsEnumerable()
-                     select new ProductListRoot
-                     {
-                         ProductId = Convert.ToString(x["pk_product_id"]),
-                         ItemCode = Convert.ToString(x["ItemCode"]),
-                         ItemName = Convert.ToString(x["ItemName"]),
-                         FrgnName = Convert.ToString(x["FrgnName"]),
-                         OnHand = Convert.ToString(x["OnHand"]),
-                         Available = Convert.ToString(x["Available"]),
-                         MRP = Convert.ToString(x["MRP"]),
-                         GST = Convert.ToString(x["F_1"]),
-                         PTR = Convert.ToString(x["F_2"]),
-                         F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Utils.FormatProductF4(Convert.ToString(x["F_4"])),
-                         F_5 = Convert.ToString(x["F_5"]),
-                         Image = baseUrl + path + Convert.ToString(x["prod_images"]),
-                     });
+            var c = (from x in dtProvider.AsEnumerable() select MapProductList(x, baseUrl, path));
             objProvider = c.ToList();
         }
         catch (Exception ex)
@@ -188,12 +167,12 @@ public class APILogic
     {
         string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
         string path = ConfigurationManager.AppSettings["ProductPath"];
-        int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 1);
+        int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
         List<ReturnProductModel> objProvider = new List<ReturnProductModel>();
         DataSet dsProvider = blogs.GetReturnProducts(userId);
         try
         {
-            DataTable dtProvider = new DataTable("OrdersList");
+            DataTable dtProvider = new DataTable("ReturnProducts");
             dtProvider = dsProvider.Tables[0];
             var c = (from x in dtProvider.AsEnumerable()
                      select new ReturnProductModel
@@ -216,6 +195,64 @@ public class APILogic
             objProp.Result = ex.Message;
         }
         return objProvider;
+    }
+
+    public List<ReturnProductModel> GetReturnProductsAdmin(Property objProp)
+    {
+        List<ReturnProductModel> objProvider = new List<ReturnProductModel>();
+        try
+        {
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            string path = ConfigurationManager.AppSettings["ProductPath"];
+
+            DataSet dsProvider = blogs.GetReturnProductsAdmin();
+            DataTable dtProvider = new DataTable("ReturnProducts");
+            dtProvider = dsProvider.Tables[0];
+            var c = (from x in dtProvider.AsEnumerable()
+                     select new ReturnProductModel
+                     {
+                         Id = Convert.ToInt32(x["id"]),
+                         productId = Convert.ToInt32(x["ProductId"]),
+                         batchNumber = Convert.ToString(x["batchNumber"]),
+                         productName = Convert.ToString(x["productName"]),
+                         productImg = baseUrl + path + Convert.ToString(x["productImg"]),
+                         userId = Convert.ToInt32(x["UserId"]),
+                         status = Convert.ToString(x["Status"]),
+                         description = Convert.ToString(x["Description"]),
+                         CreatedAt = Convert.ToDateTime(x["CreatedAt"]),
+                         quantity = Convert.ToInt32(x["quantity"]),
+                     });
+            objProvider = c.ToList();
+        }
+        catch (Exception ex)
+        {
+            objProp.Result = ex.Message;
+        }
+        return objProvider;
+    }
+
+    // update return product status and descriptions
+    public ResponseModel<ReturnProductModel> UpdateReturnProductsAdmin(Property objProp)
+    {
+        ResponseModel<ReturnProductModel> response;
+
+        try
+        {
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            string path = ConfigurationManager.AppSettings["ProductPath"];
+
+            string data = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "data", "");
+            ReturnProductModel returnProduct = JsonConvert.DeserializeObject<ReturnProductModel>(data);
+
+            blogs.UpdateReturnProduct(returnProduct);
+
+            response = new ResponseModel<ReturnProductModel>(returnProduct, "Update successfull.");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<ReturnProductModel>(ex.Message);
+        }
+        return response;
     }
 
     public Dictionary<string, object> AddProductsReturn(Property objProp)
@@ -590,6 +627,8 @@ public class APILogic
         objProp.orderId = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
         ProductOrder objProvider = new ProductOrder();
         List<Product> objProviders = new List<Product>();
+        string path = ConfigurationManager.AppSettings["ProductPath"];
+        string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
         DataSet dsProvider = blogs.GetOrderList(objProp);
         try
         {
@@ -617,7 +656,9 @@ public class APILogic
                              Offer_Qty = Convert.ToString(x["Offer_Qty"]),
                              Status = Convert.ToString(x["Status"]),
                              Date = Convert.ToString(x["Date"]),
-                             Tamount = Convert.ToString(x["Tamount"])
+                             Tamount = Convert.ToString(x["Tamount"]),
+                             image = baseUrl + path + Convert.ToString(x["image"]),
+
                          });
                 objProviders = c.ToList();
                 objProvider.Products = objProviders;
@@ -829,24 +870,7 @@ public class APILogic
         {
             DataTable dtProvider = new DataTable("OrdersList");
             dtProvider = dsProvider.Tables[0];
-            var c = (from x in dtProvider.AsEnumerable()
-                     select new ProductListRoot
-                     {
-                         ProductId = Convert.ToString(x["pk_product_id"]),
-                         ItemCode = Convert.ToString(x["ItemCode"]),
-                         ItemName = Convert.ToString(x["ItemName"]),
-                         FrgnName = Convert.ToString(x["FrgnName"]),
-                         OnHand = Convert.ToString(x["OnHand"]),
-                         Available = Convert.ToString(x["Available"]),
-                         MRP = Convert.ToString(x["MRP"]),
-                         GST = Convert.ToString(x["F_1"]),
-                         PTR = Convert.ToString(x["F_2"]),
-                         F_3 = Convert.ToString(x["F_3"]),
-                         F_4 = Utils.FormatProductF4(Convert.ToString(x["F_4"])),
-                         F_5 = Convert.ToString(x["F_5"]),
-                         Image = baseUrl + path + Convert.ToString(x["prod_images"]),
-                         Offers = Convert.ToString(x["offers"])
-                     });
+            var c = (from x in dtProvider.AsEnumerable() select MapProductList(x, baseUrl, path));
             objProvider = c.ToList();
         }
         catch (Exception ex)
@@ -910,7 +934,7 @@ public class APILogic
                          EligibilityQty = Convert.ToString(x["eligibilityQty"]),
                          OfferQty = Convert.ToString(x["offerQty"]),
                          offerstatus = Convert.ToString(x["status"]),
-                         productId = x["productId"] != DBNull.Value ? Convert.ToString(x["productId"]) : null,
+                         productId = x["productIds"] != DBNull.Value ? Convert.ToString(x["productIds"]) : null,
                          Status = "Successfully listed",
                          Result = "Sucess",
                      });
@@ -1987,6 +2011,7 @@ public class APILogic
         var F4 = HttpContext.Current.Request.Form["F_4"];
         var F5 = HttpContext.Current.Request.Form["F_5"];
         var ImageUrl = HttpContext.Current.Request.Form["ImageUrl"];
+        var categoryIds = HttpContext.Current.Request.Form["categoryIds"];
         //var Image = HttpContext.Current.Request.Files["Image"];
         try
         {
@@ -2004,10 +2029,12 @@ public class APILogic
             objProp.F5 = F5;
             objProp.image = ImageUrl;
 
+            
+
 
             if (objProp.ProductId != "")
             {
-                objProp.DataSet = blogs.ProductUpdate(objProp);
+                objProp.DataSet = blogs.ProductUpdate(objProp, categoryIds ?? "");
                 if (objProp.DataSet.Tables[0].Rows.Count > 0)
                 {
                     if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
@@ -2310,7 +2337,7 @@ public class APILogic
         try
         {
             var image = HttpContext.Current.Request.Files["image"];
-            string name = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "name", "");
+            string name = HttpContext.Current.Request.Form["name"];
             DateTime createdDate = DateTime.Now;
             DateTime updateDate = DateTime.Now;
 
@@ -2330,7 +2357,7 @@ public class APILogic
 
             blogs.AddCategory(category);
 
-            return response;
+            response = new ResponseModel<CategoryModel>(category, "Category add successfully.");
         }
         catch (Exception ex)
         {
@@ -2339,45 +2366,27 @@ public class APILogic
         return response;
     }
 
-    // add sub category
-    public ResponseModel<CategoryModel> AddSubCategory(Property objProp)
+    public ResponseModel<bool> DeleteCategory(Property objProp)
     {
-        ResponseModel<CategoryModel> response = null;
+        ResponseModel<bool> response;
         try
         {
-            var image = HttpContext.Current.Request.Files["image"];
-            string name = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "name", "");
-            string categoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "categoryId", "");
-            DateTime createdDate = DateTime.Now;
-            DateTime updateDate = DateTime.Now;
-            if (string.IsNullOrEmpty(name))
+            int categoryId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "categoryId", 0);
+            if (categoryId == 0)
             {
-                response = new ResponseModel<CategoryModel>("Sub Category name is required");
+                response = new ResponseModel<bool>("Category Id is required");
                 return response;
             }
-            if (string.IsNullOrEmpty(categoryId))
-            {
-                response = new ResponseModel<CategoryModel>("Category Id is required");
-                return response;
-            }
-            CategoryModel subCategory = new CategoryModel
-            {
-                Name = name,
-                Image = Utils.SaveRequestedImage(image, "CategoryPath"),
-                ParentId = Convert.ToInt32(categoryId),
-                createdAt = createdDate,
-                updatedAt = updateDate
-            };
-            blogs.AddSubCategory(subCategory);
-            return response;
+
+            blogs.DeleteCategory(categoryId);
+            response = new ResponseModel<bool>(true, "Category delete successfully.");
         }
         catch (Exception ex)
         {
-            response = new ResponseModel<CategoryModel>(ex.Message);
+            response = new ResponseModel<bool>(ex.Message);
         }
         return response;
     }
-
     // get all categories
     public ResponseModel<List<CategoryModel>> GetCategories(Property objProp)
     {
@@ -2400,7 +2409,6 @@ public class APILogic
                 Id = row.Field<int>("Id"),
                 Name = row.Field<string>("Name"),
                 Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
-                ParentId = row.Field<int?>("ParentId"),
                 IsActive = row.Field<bool>("IsActive"),
                 createdAt = row.Field<DateTime>("CreatedAt"),
                 updatedAt = row.Field<DateTime>("UpdatedAt")
@@ -2414,65 +2422,6 @@ public class APILogic
             // Handle exceptions gracefully
             return new ResponseModel<List<CategoryModel>>(ex.Message);
         }
-    }
-
-    // get all sub categories
-    public ResponseModel<List<CategoryModel>> GetSubCategory(Property objProp)
-    {
-        ResponseModel<List<CategoryModel>> response = null;
-        try
-        {
-            DataSet data = blogs.GetSubCategories();
-            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
-            {
-                return new ResponseModel<List<CategoryModel>>(new List<CategoryModel>(), "No categories found");
-            }
-
-            // Retrieve configurations
-            string path = ConfigurationManager.AppSettings["CategoryPath"];
-            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
-
-            // Convert data to CategoryModel
-            var categories = data.Tables[0].AsEnumerable().Select(row => new CategoryModel
-            {
-                Id = row.Field<int>("Id"),
-                Name = row.Field<string>("Name"),
-                Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
-                ParentId = row.Field<int?>("ParentId"),
-                IsActive = row.Field<bool>("IsActive"),
-                createdAt = row.Field<DateTime>("CreatedAt"),
-                updatedAt = row.Field<DateTime>("UpdatedAt")
-            }).ToList();
-            response = new ResponseModel<List<CategoryModel>>(categories, "Sub Categories fetched successfully");
-        }
-        catch (Exception ex)
-        {
-            response = new ResponseModel<List<CategoryModel>>(ex.Message);
-        }
-        return response;
-    }
-
-    // get all sub categories by category id
-    public ResponseModel<List<CategoryModel>> GetSubCategoriesByCategoryId(Property objProp)
-    {
-        ResponseModel<List<CategoryModel>> response = null;
-        try
-        {
-            string categoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "categoryId", "");
-            if (string.IsNullOrEmpty(categoryId))
-            {
-                response = new ResponseModel<List<CategoryModel>>("Category Id is required");
-                return response;
-            }
-            DataSet data = blogs.GetSubCategoriesByParentId(Convert.ToInt32(categoryId));
-            List<CategoryModel> categories = Utils.ConvertDataTable<CategoryModel>(data.Tables[0]);
-            response = new ResponseModel<List<CategoryModel>>(categories, "Sub Categories fetched successfully");
-        }
-        catch (Exception ex)
-        {
-            response = new ResponseModel<List<CategoryModel>>(ex.Message);
-        }
-        return response;
     }
 
     // get category by id
@@ -2503,7 +2452,6 @@ public class APILogic
                 Id = row.Field<int>("Id"),
                 Name = row.Field<string>("Name"),
                 Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
-                ParentId = row.Field<int?>("ParentId"),
                 IsActive = row.Field<bool>("IsActive"),
                 createdAt = row.Field<DateTime>("CreatedAt"),
                 updatedAt = row.Field<DateTime>("UpdatedAt")
@@ -2517,47 +2465,399 @@ public class APILogic
         return response;
     }
 
-    // get sub category by id
-    public ResponseModel<CategoryModel> GetSubCategoryById(Property objProp)
+    // get all products by category id
+    public ResponseModel<List<ProductListRoot>> GetProductByCategoryId(Property objProp)
     {
-        ResponseModel<CategoryModel> response = null;
+        ResponseModel<List<ProductListRoot>> response = null;
         try
         {
-            string subCategoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "subCategoryId", "");
-            if (string.IsNullOrEmpty(subCategoryId))
+            string categoryId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "categoryId", "");
+            if (string.IsNullOrEmpty(categoryId))
             {
-                response = new ResponseModel<CategoryModel>("Sub Category Id is required");
+                response = new ResponseModel<List<ProductListRoot>>("Category Id is required");
                 return response;
             }
-            DataSet data = blogs.GetSubCategoryById(Convert.ToInt32(subCategoryId));
-            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
-            {
-                return new ResponseModel<CategoryModel>(new CategoryModel(), "No categories found");
-            }
-
-            // Retrieve configurations
-            string path = ConfigurationManager.AppSettings["CategoryPath"];
+            DataSet data = blogs.GetProductsByCategoryId(Convert.ToInt32(categoryId));
+            string path = ConfigurationManager.AppSettings["ProductPath"];
             string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
-
-            // Convert data to CategoryModel
-            var category = data.Tables[0].AsEnumerable().Select(row => new CategoryModel
-            {
-                Id = row.Field<int>("Id"),
-                Name = row.Field<string>("Name"),
-                Image = $"{baseUrl}{path}{row.Field<string>("Image")}",
-                ParentId = row.Field<int?>("ParentId"),
-                IsActive = row.Field<bool>("IsActive"),
-                createdAt = row.Field<DateTime>("CreatedAt"),
-                updatedAt = row.Field<DateTime>("UpdatedAt")
-            }).First();
-            response = new ResponseModel<CategoryModel>(category, "Sub Category fetched successfully");
+            var products = data.Tables[0]
+                           .AsEnumerable()
+                           .Select(x => MapProductList(x, baseUrl, path))
+                           .ToList();
+            response = new ResponseModel<List<ProductListRoot>>(products, "Products fetched successfully");
         }
         catch (Exception ex)
         {
-            response = new ResponseModel<CategoryModel>(ex.Message);
+            response = new ResponseModel<List<ProductListRoot>>(ex.Message);
         }
         return response;
     }
+
+    public ResponseModel<bool> AddProductInOrderSheet(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+        try
+        {
+            int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+            int productId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "productId", 0);
+
+            if (userId == 0)
+            {
+                response = new ResponseModel<bool>("User Id is required");
+                return response;
+            }
+            if (productId == 0)
+            {
+                response = new ResponseModel<bool>("Product Id is required");
+                return response;
+            }
+
+            blogs.AddProductInOrderSheet(userId, productId);
+            response = new ResponseModel<bool>(true, "Product added successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+
+        return response;
+    }
+
+    public ResponseModel<List<ProductListRoot>> GetOrderSheet(Property objProp)
+    {
+        ResponseModel<List<ProductListRoot>> response = null;
+        try
+        {
+            int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+            if (userId == 0)
+            {
+                response = new ResponseModel<List<ProductListRoot>>("User Id is required");
+                return response;
+            }
+            DataSet data = blogs.GetOrderSheet(userId);
+            string path = ConfigurationManager.AppSettings["ProductPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            var products = data.Tables[0]
+                           .AsEnumerable()
+                           .Select(x => MapProductList(x, baseUrl, path))
+                           .ToList();
+            response = new ResponseModel<List<ProductListRoot>>(products, "Products fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<List<ProductListRoot>>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<bool> RemoveProductFromOrderSheet(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+        try
+        {
+            int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+            int productId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "productId", 0);
+            if (userId == 0)
+            {
+                response = new ResponseModel<bool>("User Id is required");
+                return response;
+            }
+            if (productId == 0)
+            {
+                response = new ResponseModel<bool>("Product Id is required");
+                return response;
+            }
+            blogs.RemoveProductFromOrderSheet(userId, productId);
+            response = new ResponseModel<bool>(true, "Product removed successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<bool> AddProductRequst(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+        try
+        {
+            var image = HttpContext.Current.Request.Files["image"];
+            int userId = Convert.ToInt16(HttpContext.Current.Request.Form["userId"].ToString());
+            string composition = HttpContext.Current.Request.Form["composition"];
+            if (userId == 0)
+            {
+                response = new ResponseModel<bool>("User Id is required");
+                return response;
+            }
+            if (string.IsNullOrEmpty(composition))
+            {
+                response = new ResponseModel<bool>("composition is required");
+                return response;
+            }
+
+            string imgPath = "";
+
+            if (image != null)
+            {
+                imgPath = Utils.SaveRequestedImage(image, "ProductRequestPath");
+            }
+
+
+            blogs.AddProductRequest(userId, composition, imgPath);
+            response = new ResponseModel<bool>(true, "Product request added successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<List<ProductRequestModel>> GetProductRequests(Property objProp)
+    {
+        ResponseModel<List<ProductRequestModel>> response = null;
+        try
+        {
+            DataSet data = blogs.GetProductRequests();
+            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
+            {
+                return new ResponseModel<List<ProductRequestModel>>(new List<ProductRequestModel>(), "No product requests found");
+            }
+            string path = ConfigurationManager.AppSettings["ProductRequestPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            var requests = data.Tables[0]
+                           .AsEnumerable()
+                           .Select(x => new ProductRequestModel
+                           {
+                               Id = Convert.ToInt32(x["Id"]),
+                               UserId = Convert.ToInt32(x["UserId"]),
+                               Composition = Convert.ToString(x["Composition"]),
+                               Image = $"{baseUrl}{path}{x["Image"]}",
+                               CreatedAt = Convert.ToDateTime(x["CreatedAt"])
+                           })
+                           .ToList();
+            response = new ResponseModel<List<ProductRequestModel>>(requests, "Product requests fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<List<ProductRequestModel>>(ex.Message);
+        }
+        return response;
+    }
+
+
+    public ResponseModel<bool> OrderSheetToCart(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+        try
+        {
+            int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+            if (userId == 0)
+            {
+                response = new ResponseModel<bool>("User Id is required");
+                return response;
+            }
+            blogs.OrderSheetToCart(userId);
+            response = new ResponseModel<bool>(true, "Order sheet transferred to cart successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<List<ProductListRoot>> getReorderProducts(Property objProp)
+    {
+        ResponseModel<List<ProductListRoot>> response = null;
+        try
+        {
+            string orderId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderId", "");
+            if (string.IsNullOrWhiteSpace(orderId))
+            {
+                response = new ResponseModel<List<ProductListRoot>>("OrderId is required");
+                return response;
+            }
+            DataSet data = blogs.GetReorderProducts(orderId);
+            string path = ConfigurationManager.AppSettings["ProductPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            var products = data.Tables[0]
+                           .AsEnumerable()
+                           .Select(x => MapProductList(x, baseUrl, path))
+                           .ToList();
+            response = new ResponseModel<List<ProductListRoot>>(products, "Products fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<List<ProductListRoot>>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<GiftSchemeModel> AddGiftScheme(Property objProp)
+    {
+        ResponseModel<GiftSchemeModel> response = null;
+        try
+        {
+            var image = HttpContext.Current.Request.Files["image"];
+            string name = HttpContext.Current.Request.Form["name"];
+            string description = HttpContext.Current.Request.Form["description"];
+            string fromDate = HttpContext.Current.Request.Form["fromDate"];
+            string toDate = HttpContext.Current.Request.Form["toDate"];
+            string eligibilityAmount = HttpContext.Current.Request.Form["eligibilityAmount"];
+            string excludedProducts = HttpContext.Current.Request.Form["excludedProducts"];
+            string offer = HttpContext.Current.Request.Form["offer"];
+
+            DateTime createdDate = DateTime.Now;
+            DateTime updateDate = DateTime.Now;
+
+            GiftSchemeModel giftScheme = new GiftSchemeModel() {
+                Name = name,
+                Description = description,
+                Image = Utils.SaveRequestedImage(image, "GiftSchemePath"),
+                FromDate = Convert.ToDateTime(fromDate),
+                ToDate = Convert.ToDateTime(toDate),
+                EligibilityAmount = Convert.ToInt32(eligibilityAmount),
+                Offer = offer,
+                ExcludedProducts = excludedProducts,
+                CreatedAt = createdDate,
+                UpdatedAt = updateDate
+            };
+
+            blogs.AddGiftScheme(giftScheme);
+
+            response = new ResponseModel<GiftSchemeModel>(giftScheme, "Gift scheme added successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<GiftSchemeModel>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<bool> DeleteGiftScheme(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+        try
+        {
+            int id = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "id", 0);
+            if (id == 0)
+            {
+                response = new ResponseModel<bool>("Gift Scheme Id is required");
+                return response;
+            }
+            blogs.DeleteGiftScheme(id);
+            response = new ResponseModel<bool>(true, "Gift scheme deleted successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<List<GiftSchemeModel>> GetGiftSchemes(Property objProp)
+    {
+        ResponseModel<List<GiftSchemeModel>> response = null;
+        try
+        {
+            DataSet data = blogs.GetGiftSchemes();
+            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
+            {
+                return new ResponseModel<List<GiftSchemeModel>>(new List<GiftSchemeModel>(), "No gift schemes found");
+            }
+            string path = ConfigurationManager.AppSettings["GiftSchemePath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            var giftSchemes = data.Tables[0]
+                           .AsEnumerable()
+                           .Select(x => new GiftSchemeModel
+                           {
+                               Id = Convert.ToInt32(x["Id"]),
+                               Name = Convert.ToString(x["name"]),
+                               Description = Convert.ToString(x["description"]),
+                               Image = $"{baseUrl}{path}{x["image"]}",
+                               FromDate = Convert.ToDateTime(x["fromDate"]),
+                               ToDate = Convert.ToDateTime(x["toDate"]),
+                               EligibilityAmount = Convert.ToInt32(x["eligibilityAmount"]),
+                               Offer = Convert.ToString(x["offer"]),
+                               ExcludedProducts = Convert.ToString(x["excludedProducts"]),
+                               CreatedAt = Convert.ToDateTime(x["createdAt"]),
+                               UpdatedAt = Convert.ToDateTime(x["updatedAt"])
+                           })
+                           .ToList();
+            response = new ResponseModel<List<GiftSchemeModel>>(giftSchemes, "Gift schemes fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<List<GiftSchemeModel>>(ex.Message);
+        }
+        return response;
+    }
+
+    // update
+    public ResponseModel<GiftSchemeModel> UpdateGiftScheme(Property objProp)
+    {
+        ResponseModel<GiftSchemeModel> response = null;
+        try
+        {
+            var image = HttpContext.Current.Request.Files["image"];
+            int id = Convert.ToInt32(HttpContext.Current.Request.Form["id"]);
+            string name = HttpContext.Current.Request.Form["name"];
+            string description = HttpContext.Current.Request.Form["description"];
+            string fromDate = HttpContext.Current.Request.Form["fromDate"];
+            string toDate = HttpContext.Current.Request.Form["toDate"];
+            string eligibilityAmount = HttpContext.Current.Request.Form["eligibilityAmount"];
+            string excludedProducts = HttpContext.Current.Request.Form["excludedProducts"];
+            string offer = HttpContext.Current.Request.Form["offer"];
+            DateTime createdDate = DateTime.Now;
+            DateTime updateDate = DateTime.Now;
+            GiftSchemeModel giftScheme = new GiftSchemeModel()
+            {
+                Id = id,
+                Name = name,
+                Description = description,
+                Image = Utils.SaveRequestedImage(image, "GiftSchemePath"),
+                FromDate = Convert.ToDateTime(fromDate),
+                ToDate = Convert.ToDateTime(toDate),
+                EligibilityAmount = Convert.ToInt32(eligibilityAmount),
+                Offer = offer,
+                ExcludedProducts = excludedProducts,
+                CreatedAt = createdDate,
+                UpdatedAt = updateDate
+            };
+            blogs.UpdateGiftScheme(giftScheme);
+            response = new ResponseModel<GiftSchemeModel>(giftScheme, "Gift scheme updated successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<GiftSchemeModel>(ex.Message);
+        }
+        return response;
+    }
+
+    private ProductListRoot MapProductList(DataRow data, string baseUrl, string path)
+    {
+        return new ProductListRoot
+        {
+            ProductId = Convert.ToString(data["pk_product_id"]),
+            ItemCode = Convert.ToString(data["ItemCode"]),
+            ItemName = Convert.ToString(data["ItemName"]),
+            FrgnName = Convert.ToString(data["FrgnName"]),
+            OnHand = Convert.ToString(data["OnHand"]),
+            Available = Convert.ToString(data["Available"]),
+            MRP = Convert.ToString(data["MRP"]),
+            GST = Convert.ToString(data["F_1"]),
+            PTR = Convert.ToString(data["F_2"]),
+            F_3 = Convert.ToString(data["F_3"]),
+            F_4 = Utils.FormatProductF4(Convert.ToString(data["F_4"])),
+            F_5 = Convert.ToString(data["F_5"]),
+            Image = baseUrl + path + Convert.ToString(data["prod_images"]),
+            Categories = data.Table.Columns.Contains("Category") ? JsonConvert.DeserializeObject<List<CategoryModel>>(Convert.ToString(data["Category"])) : null,
+            Offers = data.Table.Columns.Contains("offers") ? Convert.ToString(data["offers"]) : ""
+        };
+    }
+
 
     public class ResponseModel<T>
     {
@@ -2600,6 +2900,7 @@ public class APILogic
         public string Tamount { get; set; }
         public string OrderID { get; set; }
         public string Date { get; set; }
+        public string image { get; set; }
     }
 
     public class ProductOrder
@@ -2721,7 +3022,9 @@ public class APILogic
         public int Inout { get; set; }
         public string Id { get; set; }
         public string Result { get; set; }
+        public List<CategoryModel> Categories { get; set; }
         public string Offers { get; set; }
+
     }
     public class OfferListRoot
     {
@@ -2823,13 +3126,43 @@ public class APILogic
 
     public class CategoryModel
     {
+        [JsonProperty("Id")]
         public int Id { get; set; }
+        [JsonProperty("Name")]
         public string Name { get; set; }
+        [JsonProperty("Image")]
         public string Image { get; set; }
-        public int? ParentId { get; set; }
+        [JsonProperty("IsActive")]
         public bool IsActive { get; set; }
+        [JsonProperty("createdAt")]
         public DateTime createdAt { get; set; }
+        [JsonProperty("updatedAt")]
         public DateTime updatedAt { get; set; }
     }
 
+    public class ProductRequestModel
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public string Composition { get; set; }
+        public string Image { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class GiftSchemeModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string Image { get; set; }
+        public int EligibilityAmount { get; set; }
+        public string Offer { get; set; }
+        public DateTime FromDate { get; set; }
+        public DateTime ToDate { get; set; }
+        public bool IsGlobal { get; set; }
+        public string ExcludedProducts { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+
+    }
 }

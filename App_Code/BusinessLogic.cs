@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
 using MySql.Data.MySqlClient;
 using Newtonsoft.Json;
@@ -915,7 +916,7 @@ public class BusinessLogic
         }
         return objProp.DataTable;
     }
-    public DataSet ProductUpdate(Property objProp)
+    public DataSet ProductUpdate(Property objProp, string categoryIds)
     {
         string path = ConfigurationManager.AppSettings["ProductPath"];
         string filePath = AppDomain.CurrentDomain.BaseDirectory + path;
@@ -937,7 +938,7 @@ public class BusinessLogic
             try
             {
                 objProp.Query = "sp_productUpdate";
-                MySqlParameter[] para = new MySqlParameter[13];
+                MySqlParameter[] para = new MySqlParameter[14];
                 para[0] = new MySqlParameter("_productId", objProp.ProductId);
                 para[1] = new MySqlParameter("_itemCode", objProp.ItemCode);
                 para[2] = new MySqlParameter("_itemName", objProp.ItemName);
@@ -951,6 +952,7 @@ public class BusinessLogic
                 para[10] = new MySqlParameter("_F4", objProp.F4);
                 para[11] = new MySqlParameter("_F5", objProp.F5);
                 para[12] = new MySqlParameter("_prodImages", objProp.image);
+                para[12] = new MySqlParameter("_categoryIds", categoryIds);
                 objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
             }
             catch (Exception ex)
@@ -1055,6 +1057,25 @@ public class BusinessLogic
         var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetReturnProducts", para);
         return ds;
     }
+
+    public DataSet GetReturnProductsAdmin()
+    {
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("inputUserId", null);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetReturnProducts", para);
+        return ds;
+    }
+
+    public void UpdateReturnProduct(ReturnProductModel model)
+    {
+        string query = $@"
+            UPDATE ReturnProduct  
+            SET Status = '{model.status}', description = '{model.description}' 
+            WHERE Id = {model.Id};";
+
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+
+    }
     public void AddProductsReturn(List<ReturnProductModel> products)
     {
         // Build the bulk INSERT query
@@ -1082,8 +1103,8 @@ public class BusinessLogic
     public void AddCategory(CategoryModel category)
     {
         string query = $@"
-            INSERT INTO Category (Name, Image, CreatedAt, UpdatedAt) 
-            VALUES ('{category.Name}', '{category.Image}', '{category.createdAt}', '{category.updatedAt}');";
+            INSERT INTO Category (Name, Image) 
+            VALUES ('{category.Name}', '{category.Image}');";
         DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
     }
 
@@ -1100,13 +1121,22 @@ public class BusinessLogic
     {
         string query = $@"
             DELETE FROM Category 
-            WHERE Id = {categoryId} or ParentId = {categoryId};";
+            WHERE Id = {categoryId};";
         DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+
+        try
+        {
+            string selectQuery = $@"
+            SELECT * FROM Category 
+            WHERE Id = {categoryId};";
+            DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, selectQuery);
+        }
+        catch { }
     }
 
     public DataSet GetCategories()
     {
-        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM Category Where ParentId IS NULL;");
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM Category;");
         return ds;
     }
 
@@ -1116,46 +1146,138 @@ public class BusinessLogic
         return ds;
     }
 
-    public void AddSubCategory(CategoryModel subCategory)
-    {
-        string query = $@"
-            INSERT INTO Category (Name, Image, ParentId, CreatedAt, UpdatedAt) 
-            VALUES ('{subCategory.Name}', '{subCategory.Image}', {subCategory.ParentId}, '{subCategory.createdAt}', '{subCategory.updatedAt}');";
-        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
-    }
 
-    public void UpdateSubCategory(CategoryModel subCategory)
+    public DataSet GetProductsByCategoryId(int categoryId)
     {
-        string query = $@"
-            UPDATE Category 
-            SET Name = '{subCategory.Name}', Image = '{subCategory.Image}', ParentId = '{subCategory.ParentId}', UpdatedAt = '{subCategory.updatedAt}' 
-            WHERE Id = {subCategory.Id};";
-        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
-    }
-
-    public void DeleteSubCategory(int subCategoryId)
-    {
-        string query = $@"
-            DELETE FROM Category 
-            WHERE Id = {subCategoryId};";
-        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
-    }
-
-    public DataSet GetSubCategories()
-    {
-        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM Category WHERE ParentId IS NOT NULL");
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("categoryId", categoryId);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_ProductsByCategoryId", para);
         return ds;
     }
 
-    public DataSet GetSubCategoryById(int subCategoryId)
+    public void AddProductInOrderSheet(int userId, int productId)
     {
-        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $"SELECT * FROM Category WHERE Id = {subCategoryId}");
+        string query = $@"
+            INSERT INTO OrderSheet (UserId, ProductId) 
+            VALUES ({userId}, {productId});";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public void RemoveProductFromOrderSheet(int userId, int productId)
+    {
+        string query = $@"
+            DELETE FROM OrderSheet 
+            WHERE UserId = {userId} AND ProductId = {productId};";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public DataSet GetOrderSheet(int userId)
+    {
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("userId", userId);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetOrderSheet", para);
         return ds;
     }
 
-    public DataSet GetSubCategoriesByParentId(int parentCategoryId)
+    // transfer products from order sheet to cart
+    public void OrderSheetToCart(int userId)
     {
-        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $"SELECT * FROM Category WHERE ParentId = {parentCategoryId}");
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("userId", userId);
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_OrderSheetToCart", para);
+    }
+
+    // AddProductRequest
+    public void AddProductRequest(int userId, string composition, string image)
+    {
+        string query = $@"
+            INSERT INTO ProductRequest (UserId, Composition, Image) 
+            VALUES ({userId}, '{composition}', '{image}');";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public DataSet GetProductRequests()
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM ProductRequest ORDER BY Id Desc;");
+        return ds;
+    }
+
+    public DataSet GetReorderProducts(string orderId)
+    {
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("orderId", orderId);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetReorderProducts", para);
+        return ds;
+    }
+    public void AddGiftScheme(GiftSchemeModel giftScheme)
+    {
+        string query = $@"
+            INSERT INTO GiftScheme (name, description, image, fromDate, toDate, isGlobal, eligibilityAmount, offer, excludedProducts) 
+            VALUES ('{giftScheme.Name}', '{giftScheme.Description}', '{giftScheme.Image}', '{giftScheme.FromDate.ToString("yyyy-MM-dd HH:mm:ss")}', '{giftScheme.ToDate.ToString("yyyy-MM-dd HH:mm:ss")}', '1', '{giftScheme.EligibilityAmount}', '{giftScheme.Offer}', '{giftScheme.ExcludedProducts}');";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public void UpdateGiftScheme(GiftSchemeModel giftScheme)
+    {
+        //string query = $@"
+        //    UPDATE GiftScheme 
+        //    SET name = '{giftScheme.Name}', description = '{giftScheme.Description}', image = '{giftScheme.Image}', fromDate = '{giftScheme.FromDate.ToString("yyyy-MM-dd HH:mm:ss")}', toDate = '{giftScheme.ToDate.ToString("yyyy-MM-dd HH:mm:ss")}', eligibilityAmount = '{giftScheme.EligibilityAmount}', offer = '{giftScheme.Offer}', excludedProducts = '{giftScheme.ExcludedProducts}', updatedAt = '{giftScheme.UpdatedAt}' 
+        //    WHERE Id = {giftScheme.Id};";
+        //DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+
+
+        var updates = new List<string>();
+
+        if (!string.IsNullOrEmpty(giftScheme.Name))
+            updates.Add($"name = '{giftScheme.Name}'");
+
+        if (!string.IsNullOrEmpty(giftScheme.Description))
+            updates.Add($"description = '{giftScheme.Description}'");
+
+        if (!string.IsNullOrEmpty(giftScheme.Image))
+            updates.Add($"image = '{giftScheme.Image}'");
+
+        if (giftScheme.FromDate != null)
+            updates.Add($"fromDate = '{giftScheme.FromDate:yyyy-MM-dd HH:mm:ss}'");
+
+        if (giftScheme.ToDate != null)
+            updates.Add($"toDate = '{giftScheme.ToDate:yyyy-MM-dd HH:mm:ss}'");
+
+        if (!string.IsNullOrEmpty(giftScheme.Offer))
+            updates.Add($"offer = '{giftScheme.Offer}'");
+
+        if (!string.IsNullOrEmpty(giftScheme.ExcludedProducts))
+            updates.Add($"excludedProducts = '{giftScheme.ExcludedProducts}'");
+
+        if (giftScheme.UpdatedAt != null)
+            updates.Add($"updatedAt = '{giftScheme.UpdatedAt:yyyy-MM-dd HH:mm:ss}'");
+
+        // Only proceed if there's something to update
+        if (updates.Count > 0)
+        {
+            string setClause = string.Join(", ", updates);
+
+            string query = $@"
+        UPDATE GiftScheme 
+        SET {setClause}
+        WHERE Id = {giftScheme.Id};";
+
+            DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+        }
+
+    }
+
+    public void DeleteGiftScheme(int giftSchemeId)
+    {
+        string query = $@"
+            DELETE FROM GiftScheme 
+            WHERE Id = {giftSchemeId};";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public DataSet GetGiftSchemes()
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM GiftScheme;");
         return ds;
     }
 }
