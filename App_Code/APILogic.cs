@@ -12,13 +12,13 @@ using Newtonsoft.Json.Linq;
 using System.Collections;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Drawing.Charts;
-using DocumentFormat.OpenXml.Vml;
 using DataTable = System.Data.DataTable;
 using Formatting = Newtonsoft.Json.Formatting;
 using Path = System.IO.Path;
-using System.CodeDom;
-using DocumentFormat.OpenXml.Drawing;
-using Org.BouncyCastle.Bcpg.OpenPgp;
+using cashfree_pg.Client;
+using cashfree_pg.Model;
+using System.Net;
+using static APILogic;
 
 /// <summary>
 /// Summary description for BusinessLogic
@@ -44,6 +44,8 @@ public class APILogic
             case "AddOffer": jsonResponse = AddOffer(objProp); break;
             case "AddGiftScheme": jsonResponse = AddGiftScheme(objProp); break;
             case "UpdateGiftScheme": jsonResponse = UpdateGiftScheme(objProp); break;
+            case "EditOffer": jsonResponse = EditOffer(objProp); break;
+            case "EditCategory": jsonResponse = EditCategory(objProp); break;
         }
         switch (objProp.Function)
         {
@@ -88,7 +90,7 @@ public class APILogic
             case "DeleteOffer": jsonResponse = DeleteOffer(objProp); break;
             case "GetOfferById": jsonResponse = GetOfferById(objProp); break;
             case "EmailTest": jsonResponse = TestEmail(objProp); break;
-            case "DownloadExcel": jsonResponse = DownloadOrderExcel(objProp); break;
+            //case "DownloadExcel": jsonResponse = DownloadOrderExcel(objProp); break;
             case "GetFrequentlyBoughtProducts": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
             case "GetPreviouslyOrderedProducts": jsonResponse = GetPreviouslyOrderedProducts(objProp); break;
             case "GetNewArrivals": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
@@ -107,8 +109,12 @@ public class APILogic
             case "OrderSheetToCart": jsonResponse = OrderSheetToCart(objProp); break;
             case "getReorderProducts": jsonResponse = getReorderProducts(objProp); break;
             case "GetProductRequests": jsonResponse = GetProductRequests(objProp); break;
+            case "DeleteProductRequest": jsonResponse = DeleteProductRequest(objProp); break;
             case "GetGiftSchemes": jsonResponse = GetGiftSchemes(objProp); break;
             case "DeleteGiftScheme": jsonResponse = DeleteGiftScheme(objProp); break;
+            case "GetGiftSchemeById": jsonResponse = GetGiftSchemeById(objProp); break;
+            case "CreateOrder": jsonResponse = CreateOrder(objProp); break;
+            case "VerifyPayment": jsonResponse = VerifyPayment(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -486,8 +492,17 @@ public class APILogic
             objProp.UserId = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
             if (objProp.UserId != "")
             {
-                objProp.DataSet = blogs.GetOrderPlace(objProp);
+                string orderId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderId", "");
 
+                if (!string.IsNullOrEmpty(orderId) && !PaymentGatewayService.VerifyOrder(orderId))
+                {
+                    addcart.Result = "Payment Fail";
+                    return addcart;
+                }
+
+                string mode = string.IsNullOrEmpty(orderId) ? "COD": "Online";
+                objProp.DataSet = blogs.GetOrderPlace(objProp.UserId, orderId, mode);
+                
                 if (objProp.DataSet.Tables[0].Rows.Count > 0)
                 {
                     if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
@@ -918,6 +933,9 @@ public class APILogic
         var ID = HttpContext.Current.Request.Form["id"];
         var objProvider = new List<OfferListRoot>();
         objProp.Offer_Id = Convert.ToInt32(ID);
+
+        string path = ConfigurationManager.AppSettings["ImagePath"];
+        string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
         DataSet dsOffer = blogs.getOfferById(objProp);
         try
         {
@@ -935,6 +953,7 @@ public class APILogic
                          OfferQty = Convert.ToString(x["offerQty"]),
                          offerstatus = Convert.ToString(x["status"]),
                          productId = x["productIds"] != DBNull.Value ? Convert.ToString(x["productIds"]) : null,
+                         Image = baseUrl + path + Convert.ToString(x["image"]),
                          Status = "Successfully listed",
                          Result = "Sucess",
                      });
@@ -962,6 +981,11 @@ public class APILogic
 
         List<int> productIds = GetProductIdsFromForm();
         OfferListRoot offerListResponse = new OfferListRoot();
+
+        // image path 
+        string path = ConfigurationManager.AppSettings["ImagePath"];
+        string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+
 
         try
         {
@@ -991,6 +1015,7 @@ public class APILogic
                     offerListResponse.FromDate = objProp.From_Date.ToString("yyyy/MM/dd");
                     offerListResponse.ToDate = objProp.To_Date.ToString("yyyy/MM/dd");
                     offerListResponse.EligibilityQty = objProp.Eligibility_Qty;
+                    offerListResponse.Image = baseUrl + path + objProp.image;
 
                     offerListResponse.OfferQty = objProp.Offer_Qty;
                     if (objProp.Offer_Status == 1)
@@ -1072,7 +1097,7 @@ public class APILogic
         System.IO.StreamWriter file = null;
         try
         {
-            objProp.FileName = "C:\\ZeeLog\\FetchBill_" + System.DateTime.Now.ToString("dd-MMM-yyyy") + "_LOG_" + infile.ToUpper() + ".txt";
+            objProp.FileName = ".\\ZeeLog\\FetchBill_" + System.DateTime.Now.ToString("dd-MMM-yyyy") + "_LOG_" + infile.ToUpper() + ".txt";
             file = new System.IO.StreamWriter(objProp.FileName, true);
             file.WriteLine(".................................." + System.DateTime.Now.ToString() + " IP " + objProp.GetIpAddress + "..........................>\r\n" + query);
             file.Close();
@@ -1451,9 +1476,8 @@ public class APILogic
         }
 
 
-        var client = new RestClient("http://122.187.28.27:81/api/SalesQuotionPostAPI");
-        client.Timeout = -1;
-        var request = new RestRequest(Method.POST);
+        var client = new RestClient();
+        var request = new RestRequest("http://122.187.28.27:81/api/SalesQuotionPostAPI", Method.Post);
         request.AddHeader("Content-Type", "application/json");
         JObject jObjectbody = new JObject();
         JArray childItems = new JArray();
@@ -1495,7 +1519,7 @@ public class APILogic
 
         request.AddParameter("application/json", objectTosend, ParameterType.RequestBody);
 
-        IRestResponse response = client.Execute(request);
+        var response = client.Execute(request);
         string trimmedContent = response.Content.Trim(' ', '[', ']');
         string itemJson = response.Content;
         objProp.JsonArray = itemJson;
@@ -1970,19 +1994,20 @@ public class APILogic
                     }
                     else
                     {
-                        objProduct.ProductId = Convert.ToString(dr["ProductId"]);
-                        objProduct.ItemCode = Convert.ToString(dr["ItemCode"]);
-                        objProduct.ItemName = Convert.ToString(dr["ItemName"]);
-                        objProduct.FrgnName = Convert.ToString(dr["FrgnName"]);
-                        objProduct.OnHand = Convert.ToString(dr["OnHand"]);
-                        objProduct.Available = Convert.ToString(dr["Available"]);
-                        objProduct.MRP = Convert.ToString(dr["MRP"]);
-                        objProduct.GST = Convert.ToString(dr["F_1"]);
-                        objProduct.PTR = Convert.ToString(dr["F_2"]);
-                        objProduct.F_3 = Convert.ToString(dr["F_3"]);
-                        objProduct.F_4 = Utils.FormatProductF4(Convert.ToString(dr["F_4"]));
-                        objProduct.F_5 = Convert.ToString(dr["F_5"]);
-                        objProduct.Image = baseUrl + path + Convert.ToString(dr["ImageUrl"]);
+                        //objProduct.ProductId = Convert.ToString(dr["ProductId"]);
+                        //objProduct.ItemCode = Convert.ToString(dr["ItemCode"]);
+                        //objProduct.ItemName = Convert.ToString(dr["ItemName"]);
+                        //objProduct.FrgnName = Convert.ToString(dr["FrgnName"]);
+                        //objProduct.OnHand = Convert.ToString(dr["OnHand"]);
+                        //objProduct.Available = Convert.ToString(dr["Available"]);
+                        //objProduct.MRP = Convert.ToString(dr["MRP"]);
+                        //objProduct.GST = Convert.ToString(dr["F_1"]);
+                        //objProduct.PTR = Convert.ToString(dr["F_2"]);
+                        //objProduct.F_3 = Convert.ToString(dr["F_3"]);
+                        //objProduct.F_4 = Utils.FormatProductF4(Convert.ToString(dr["F_4"]));
+                        //objProduct.F_5 = Convert.ToString(dr["F_5"]);
+                        //objProduct.Image = baseUrl + path + Convert.ToString(dr["ImageUrl"]);
+                        objProduct = MapProductList(dr, baseUrl, path);
                     }
                 }
                 return objProduct;
@@ -1994,27 +2019,32 @@ public class APILogic
         { objProp.Result = ex.Message; }
         return objProduct;
     }
-    public AddToCarts EditProduct(Property objProp)
+    public ResponseModel<bool> EditProduct(Property objProp)
     {
 
-        AddToCarts addcart = new AddToCarts();
-        var ProductId = HttpContext.Current.Request.Form["ProductId"];
-        var ItemCode = HttpContext.Current.Request.Form["ItemCode"];
-        var ItemName = HttpContext.Current.Request.Form["ItemName"];
-        var FrgnName = HttpContext.Current.Request.Form["FrgnName"];
-        var OnHand = HttpContext.Current.Request.Form["OnHand"];
-        var Available = HttpContext.Current.Request.Form["Available"];
-        var MRP = HttpContext.Current.Request.Form["MRP"];
-        var F1 = HttpContext.Current.Request.Form["F_1"];
-        var F2 = HttpContext.Current.Request.Form["F_2"];
-        var F3 = HttpContext.Current.Request.Form["F_3"];
-        var F4 = HttpContext.Current.Request.Form["F_4"];
-        var F5 = HttpContext.Current.Request.Form["F_5"];
-        var ImageUrl = HttpContext.Current.Request.Form["ImageUrl"];
-        var categoryIds = HttpContext.Current.Request.Form["categoryIds"];
-        //var Image = HttpContext.Current.Request.Files["Image"];
+        ResponseModel<bool> response;
+
         try
         {
+
+            //AddToCarts addcart = new AddToCarts();
+            var ProductId = HttpContext.Current.Request.Form["ProductId"];
+            var ItemCode = HttpContext.Current.Request.Form["ItemCode"];
+            var ItemName = HttpContext.Current.Request.Form["ItemName"];
+            var FrgnName = HttpContext.Current.Request.Form["FrgnName"];
+            var OnHand = HttpContext.Current.Request.Form["OnHand"];
+            var Available = HttpContext.Current.Request.Form["Available"];
+            var MRP = HttpContext.Current.Request.Form["MRP"];
+            var F1 = HttpContext.Current.Request.Form["F_1"];
+            var F2 = HttpContext.Current.Request.Form["F_2"];
+            var F3 = HttpContext.Current.Request.Form["F_3"];
+            var F4 = HttpContext.Current.Request.Form["F_4"];
+            var F5 = HttpContext.Current.Request.Form["F_5"];
+            var ImageUrl = HttpContext.Current.Request.Form["ImageUrl"];
+            var categoryIds = HttpContext.Current.Request.Form["categoryIds"];
+            //var Image = HttpContext.Current.Request.Files["Image"];
+
+
             objProp.ProductId = ProductId;
             objProp.ItemCode = ItemCode;
             objProp.ItemName = ItemName;
@@ -2029,34 +2059,28 @@ public class APILogic
             objProp.F5 = F5;
             objProp.image = ImageUrl;
 
-            
 
 
-            if (objProp.ProductId != "")
+
+            if (objProp.ProductId == "")
+            {
+                response = new ResponseModel<bool>("ProductId is required");
+            }
+
+            else
             {
                 objProp.DataSet = blogs.ProductUpdate(objProp, categoryIds ?? "");
-                if (objProp.DataSet.Tables[0].Rows.Count > 0)
-                {
-                    if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
-                    {
-                        addcart.Status = "Success";
-                        addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
-                    }
-                    else
-                    {
-                        addcart.Status = "Fail";
-                        addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
-                    }
-                }
-                return addcart;
+
+                response = new ResponseModel<bool>(true, "Successfully Edit product");
             }
-            else { addcart.Result = "5"; }
 
         }
 
         catch (Exception ex)
-        { addcart.Result = ex.Message; }
-        return addcart;
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+        return response;
     }
 
     public OfferListRoot EditOffer(Property objProp)
@@ -2073,7 +2097,11 @@ public class APILogic
         var status = HttpContext.Current.Request.Form["status"];
         var createdby = HttpContext.Current.Request.Form["createdBy"];
         var updatedby = HttpContext.Current.Request.Form["updatedBy"];
-
+        if (HttpContext.Current.Request.Files.Count > 0)
+        {
+            var image = HttpContext.Current.Request.Files["image"].FileName;
+            objProp.image = image;
+        }
         List<int> productIds = GetProductIdsFromForm();
         try
         {
@@ -2089,6 +2117,7 @@ public class APILogic
             objProp.CreatedDate = DateTime.Now;
             objProp.UpdatedBy = updatedby;
             objProp.UpdatedDate = DateTime.Now;
+            //objProp.image = image;
 
             if (objProp.Offer_Id != 0)
             {
@@ -2366,6 +2395,43 @@ public class APILogic
         return response;
     }
 
+    // edit category
+    public ResponseModel<CategoryModel> EditCategory(Property objProp)
+    {
+        ResponseModel<CategoryModel> response = null;
+        try
+        {
+            var image = HttpContext.Current.Request.Files["image"];
+            string name = HttpContext.Current.Request.Form["name"];
+            string id = HttpContext.Current.Request.Form["id"];
+            string imageUrl = HttpContext.Current.Request.Form["url"];
+
+            if (string.IsNullOrEmpty(name))
+            {
+                response = new ResponseModel<CategoryModel>("Category name is required");
+                return response;
+            }
+
+            CategoryModel category = new CategoryModel
+            {
+                Id = Convert.ToInt32(id),
+                Name = name,
+                Image = Utils.SaveRequestedImage(image, "CategoryPath"),
+                updatedAt = DateTime.Now
+            };
+
+            blogs.UpdateCategory(category);
+
+            response = new ResponseModel<CategoryModel>(category, "Category add successfully.");
+        }
+        catch(Exception ex)
+        {
+            response = new ResponseModel<CategoryModel>(ex.Message);
+        }
+        return response;
+    }
+
+
     public ResponseModel<bool> DeleteCategory(Property objProp)
     {
         ResponseModel<bool> response;
@@ -2614,6 +2680,31 @@ public class APILogic
         return response;
     }
 
+    public ResponseModel<bool> DeleteProductRequest(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+        try
+        {
+            int id = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "id", 0);
+            if (id == 0)
+            {
+                response = new ResponseModel<bool>("User Id is required");
+                return response;
+            }
+
+
+            blogs.DeleteProductRequest(id);
+            response = new ResponseModel<bool>(true, "Product request added successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+        return response;
+    }
+
+
+
     public ResponseModel<List<ProductRequestModel>> GetProductRequests(Property objProp)
     {
         ResponseModel<List<ProductRequestModel>> response = null;
@@ -2712,7 +2803,8 @@ public class APILogic
             DateTime createdDate = DateTime.Now;
             DateTime updateDate = DateTime.Now;
 
-            GiftSchemeModel giftScheme = new GiftSchemeModel() {
+            GiftSchemeModel giftScheme = new GiftSchemeModel()
+            {
                 Name = name,
                 Description = description,
                 Image = Utils.SaveRequestedImage(image, "GiftSchemePath"),
@@ -2795,7 +2887,49 @@ public class APILogic
         return response;
     }
 
-    // update
+    public ResponseModel<GiftSchemeModel> GetGiftSchemeById(Property objProp)
+    {
+        ResponseModel<GiftSchemeModel> response = null;
+        try
+        {
+            int id = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "id", 0);
+            if (id == 0)
+            {
+                response = new ResponseModel<GiftSchemeModel>("No gift schemes found");
+            }
+            DataSet data = blogs.GetGiftSchemeById(id);
+            if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
+            {
+                return new ResponseModel<GiftSchemeModel>("No gift schemes found");
+            }
+            string path = ConfigurationManager.AppSettings["GiftSchemePath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            var giftSchemes = data.Tables[0]
+                           .AsEnumerable()
+                           .Select(x => new GiftSchemeModel
+                           {
+                               Id = Convert.ToInt32(x["Id"]),
+                               Name = Convert.ToString(x["name"]),
+                               Description = Convert.ToString(x["description"]),
+                               Image = $"{baseUrl}{path}{x["image"]}",
+                               FromDate = Convert.ToDateTime(x["fromDate"]),
+                               ToDate = Convert.ToDateTime(x["toDate"]),
+                               EligibilityAmount = Convert.ToInt32(x["eligibilityAmount"]),
+                               Offer = Convert.ToString(x["offer"]),
+                               ExcludedProducts = Convert.ToString(x["excludedProducts"]),
+                               CreatedAt = Convert.ToDateTime(x["createdAt"]),
+                               UpdatedAt = Convert.ToDateTime(x["updatedAt"])
+                           })
+                           .ToList();
+            response = new ResponseModel<GiftSchemeModel>(giftSchemes[0], "Gift schemes fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<GiftSchemeModel>(ex.Message);
+        }
+        return response;
+    }
+
     public ResponseModel<GiftSchemeModel> UpdateGiftScheme(Property objProp)
     {
         ResponseModel<GiftSchemeModel> response = null;
@@ -2834,6 +2968,94 @@ public class APILogic
             response = new ResponseModel<GiftSchemeModel>(ex.Message);
         }
         return response;
+    }
+
+
+    public ResponseModel<Dictionary<string, string>> CreateOrder(Property objProp)
+    {
+        ResponseModel<Dictionary<string, string>> response = null;
+        try
+        {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+            string userName = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "userName", "");
+            string userNumber = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "userNumber", "");
+            double amount = Utils.GetEncodeValue<double>(objProp.SplitValueEncode, "amount", 0);
+
+            if (userId == 0)
+            {
+                response = new ResponseModel<Dictionary<string, string>>("User Id is required");
+                return response;
+            }
+            
+            if (string.IsNullOrEmpty(userName))
+            {
+                response = new ResponseModel<Dictionary<string, string>>("userName is required");
+                return response;
+            }
+
+            if (string.IsNullOrEmpty(userNumber))
+            {
+                response = new ResponseModel<Dictionary<string, string>>("userNumber is required");
+                return response;
+            }
+
+            if (amount < 1)
+            {
+                response = new ResponseModel<Dictionary<string, string>>("amount should be greater than 0.");
+                return response;
+            }
+            try
+            {
+                var result = PaymentGatewayService.CreateOrder(userName, userNumber, amount);
+                Dictionary<string, string> res = new Dictionary<string, string>();
+                res.Add("orderId", result.order_id);
+                res.Add("sessionId", result.payment_session_id);
+                response = new ResponseModel<Dictionary<string, string>>(res, "");
+            }
+            catch (ApiException e)
+            {
+                Console.WriteLine("Exception when calling PGCreateOrder: " + e.Message);
+                Console.WriteLine("Status Code: " + e.ErrorCode);
+                Console.WriteLine(e.StackTrace);
+                response = new ResponseModel<Dictionary<string, string>>(e.Message);
+            }
+            //blogs.CreateOrder(userId);
+            
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<Dictionary<string, string>>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<OrderEntity> VerifyPayment(Property objProp)
+    {
+        try
+        {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            string orderId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderId", "");
+            if (string.IsNullOrEmpty(orderId))
+            {
+                return new ResponseModel<OrderEntity>("orderId is required.") ;
+            }
+            Cashfree.XClientId = "TEST10437818e09024c9be7f3f5fe43581873401";
+            Cashfree.XClientSecret = "cfsk_ma_test_72582f14312271ea5b355a78350db1ff_e17c5789";
+            Cashfree.XEnvironment = Cashfree.SANDBOX;
+            var cashfree = new Cashfree();
+            var xApiVersion = "2022-09-01";
+
+            var result = cashfree.PGFetchOrder(xApiVersion, orderId, null, null);
+
+            return new ResponseModel<OrderEntity>(result.Content as OrderEntity, "Fetch successfull");
+
+        }
+        catch (Exception ex)
+        {
+            return new ResponseModel<OrderEntity>(ex.Message);
+        }
+
     }
 
     private ProductListRoot MapProductList(DataRow data, string baseUrl, string path)

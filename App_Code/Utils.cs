@@ -96,6 +96,17 @@ public class Utils
         return filePath;
     }
 
+
+    // delete file
+    public static void DeleteFile(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+
+
     // convert DataTable to List
     public static List<T> ConvertDataTable<T>(DataTable dt)
     {

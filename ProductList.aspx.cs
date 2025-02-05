@@ -22,10 +22,9 @@ public partial class ProductList : System.Web.UI.Page
 
 
 
-        var client = new RestClient("http://122.187.28.27:81/api/ItemDetailsGetApi");
-        client.Timeout = -1;
-        var request = new RestRequest(Method.GET);
-        IRestResponse response = client.Execute(request);
+        var client = new RestClient();
+        var request = new RestRequest("http://122.187.28.27:81/api/ItemDetailsGetApi", Method.Get);
+        var response = client.Execute(request);
         string itemJson = response.Content;
         try
         {

@@ -3,25 +3,26 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33424.131
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "api.zeelabgeneric.in", ".", "{A42477BE-5BDE-4C3C-B3E4-2552A2A40833}"
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "api.zeelabgeneric.in(1)", ".", "{A42477BE-5BDE-4C3C-B3E4-2552A2A40833}"
 	ProjectSection(WebsiteProperties) = preProject
-		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.7.2"
+		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.8"
 		ProjectReferences = "{09e91fa0-32f0-49f9-98d1-c1c46de75f3a}|ProductApplication.dll;"
 		Debug.AspNetCompiler.VirtualPath = "/localhost_55987"
-		Debug.AspNetCompiler.PhysicalPath = "..\zeelab-api\"
+		Debug.AspNetCompiler.PhysicalPath = "..\api.zeelabgeneric.in\"
 		Debug.AspNetCompiler.TargetPath = "PrecompiledWeb\localhost_55987\"
 		Debug.AspNetCompiler.Updateable = "true"
 		Debug.AspNetCompiler.ForceOverwrite = "true"
 		Debug.AspNetCompiler.FixedNames = "false"
 		Debug.AspNetCompiler.Debug = "True"
 		Release.AspNetCompiler.VirtualPath = "/localhost_55987"
-		Release.AspNetCompiler.PhysicalPath = "..\zeelab-api\"
+		Release.AspNetCompiler.PhysicalPath = "..\api.zeelabgeneric.in\"
 		Release.AspNetCompiler.TargetPath = "PrecompiledWeb\localhost_55987\"
 		Release.AspNetCompiler.Updateable = "true"
 		Release.AspNetCompiler.ForceOverwrite = "true"
 		Release.AspNetCompiler.FixedNames = "false"
 		Release.AspNetCompiler.Debug = "False"
 		VWDPort = "55987"
+		SlnRelativePath = "..\api.zeelabgeneric.in\"
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ProductApplication", "ProductApplication\ProductApplication.csproj", "{EB2B35EB-650F-4950-B915-DDC7EE2B44E1}"

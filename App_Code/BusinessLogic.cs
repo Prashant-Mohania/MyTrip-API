@@ -141,21 +141,14 @@ public class BusinessLogic
         }
         return objProp.DataSet;
     }
-    public DataSet GetOrderPlace(Property objProp)
+    public DataSet GetOrderPlace(string userId, string orderId, string mode)
     {
-        try
-        {
-            objProp.Query = "sp_zlOrderPlace";
-            MySqlParameter[] para = new MySqlParameter[1];
-            para[0] = new MySqlParameter("_userid", objProp.UserId);
-            objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
-
-        }
-        catch (Exception ex)
-        {
-            objProp.Result = ex.Message;
-        }
-        return objProp.DataSet;
+            string query = "sp_zlOrderPlace";
+            MySqlParameter[] para = new MySqlParameter[3];
+            para[0] = new MySqlParameter("_userid", userId);
+            para[1] = new MySqlParameter("_order_Id", orderId);
+            para[2] = new MySqlParameter("_mode", mode);
+            return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, query, para);
     }
 
     public DataTable Agentlogin(Property objProp)
@@ -952,7 +945,7 @@ public class BusinessLogic
                 para[10] = new MySqlParameter("_F4", objProp.F4);
                 para[11] = new MySqlParameter("_F5", objProp.F5);
                 para[12] = new MySqlParameter("_prodImages", objProp.image);
-                para[12] = new MySqlParameter("_categoryIds", categoryIds);
+                para[13] = new MySqlParameter("_categoryIds", categoryIds);
                 objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
             }
             catch (Exception ex)
@@ -968,8 +961,24 @@ public class BusinessLogic
     {
         try
         {
+
+            string file;
+            if(objProp.image != null || !string.IsNullOrEmpty(objProp.image))
+            {
+                string path = ConfigurationManager.AppSettings["OfferImagePath"];
+                string filePath = AppDomain.CurrentDomain.BaseDirectory + path;
+                file = filePath + objProp.image;
+                SaveImageToFolder(filePath);
+                file = Path.GetFileName(file);
+            }
+            else
+            {
+                file = null;
+            }
+
+
             objProp.Query = "sp_UpdateOffer";
-            MySqlParameter[] para = new MySqlParameter[13];
+            MySqlParameter[] para = new MySqlParameter[14];
             para[0] = new MySqlParameter("_Id", objProp.Offer_Id);
             para[1] = new MySqlParameter("_Name", objProp.Offer_Name);
             para[2] = new MySqlParameter("_Description", objProp.Offer_Description);
@@ -985,6 +994,7 @@ public class BusinessLogic
             para[10] = new MySqlParameter("_UpdatedOn", objProp.UpdatedDate);
             para[11] = new MySqlParameter("_CreatedBy", objProp.CreatedBy);
             para[12] = new MySqlParameter("_CreatedOn", objProp.CreatedDate);
+            para[13] = new MySqlParameter("Image", file);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
         catch (Exception ex)
@@ -1110,10 +1120,22 @@ public class BusinessLogic
 
     public void UpdateCategory(CategoryModel category)
     {
-        string query = $@"
+        string query = "";
+        if (string.IsNullOrEmpty(category.Image))
+        {
+            query = $@"
             UPDATE Category 
-            SET Name = '{category.Name}', Image = '{category.Image}', UpdatedAt = '{category.updatedAt}' 
+            SET Name = '{category.Name}', UpdatedAt = '{category.updatedAt:yyyy-MM-dd HH:mm:ss}' 
             WHERE Id = {category.Id};";
+        }
+        else
+        {
+            query = $@"
+            UPDATE Category 
+            SET Name = '{category.Name}', Image = '{category.Image}', UpdatedAt = '{category.updatedAt:yyyy-MM-dd HH:mm:ss}' 
+            WHERE Id = {category.Id};";
+        }
+
         DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
     }
 
@@ -1193,6 +1215,14 @@ public class BusinessLogic
         string query = $@"
             INSERT INTO ProductRequest (UserId, Composition, Image) 
             VALUES ({userId}, '{composition}', '{image}');";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    // delete 
+    public void DeleteProductRequest(int id)
+    {
+        string query = $@"
+            DELETE FROM  ProductRequest WHERE Id = {id};";
         DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
     }
 
@@ -1278,6 +1308,12 @@ public class BusinessLogic
     public DataSet GetGiftSchemes()
     {
         var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM GiftScheme;");
+        return ds;
+    }
+
+    public DataSet GetGiftSchemeById(int id)
+    {
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $@"SELECT * FROM GiftScheme WHERE Id = {id};");
         return ds;
     }
 }
