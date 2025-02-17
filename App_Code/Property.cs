@@ -172,4 +172,7 @@ public class Property
     public string To { get; set; }
     public string Subject { get; set; }
     public string Body { get; set; }
+
+    public string licenseNo { get; set; }
+    public DateTime dob { get; set; }
 }

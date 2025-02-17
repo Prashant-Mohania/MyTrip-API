@@ -714,6 +714,12 @@ public class APILogic
             objProp.CitiesIds = Cities;
             objProp.StateId = objProp.SplitValueEncode[13].Split('=')[1].ToString().Trim() != "" ? Convert.ToInt32(objProp.SplitValueEncode[13].Split('=')[1].ToString().Trim()) : (int?)null;
             objProp.Password = CreateRandomPassword(10);
+            objProp.GST = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "GST", "");
+            objProp.licenseNo = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "licenseNo", "");
+            if (DateTime.TryParseExact(Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "dob", ""), "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out DateTime dob))
+            {
+                objProp.dob = dob;
+            }
             if (objProp.emailID != "")
             {
                 objProp.DataSet = blogs.AddProfile(objProp);
@@ -760,6 +766,12 @@ public class APILogic
             objProp.CityId = objProp.SplitValueEncode[9].Split('=')[1].ToString().Trim() != "" ? Convert.ToInt32(objProp.SplitValueEncode[9].Split('=')[1].ToString().Trim()) : (int?)null;
             objProp.StateId = objProp.SplitValueEncode[10].Split('=')[1].ToString().Trim() != "" ? Convert.ToInt32(objProp.SplitValueEncode[10].Split('=')[1].ToString().Trim()) : (int?)null;
             objProp.CitiesIds = Cities;
+            objProp.GST = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "GST", "");
+            objProp.licenseNo = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "licenseNo", "");
+            if (DateTime.TryParseExact(Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "dob", ""), "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out DateTime dob))
+            {
+                objProp.dob = dob;
+            }
             if (objProp.UserId != "" && objProp.Username != "")
             {
                 objProp.DataSet = blogs.ProfileUpdate(objProp);
