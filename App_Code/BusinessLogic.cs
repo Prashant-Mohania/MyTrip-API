@@ -143,12 +143,12 @@ public class BusinessLogic
     }
     public DataSet GetOrderPlace(string userId, string orderId, string mode)
     {
-            string query = "sp_zlOrderPlace";
-            MySqlParameter[] para = new MySqlParameter[3];
-            para[0] = new MySqlParameter("_userid", userId);
-            para[1] = new MySqlParameter("_order_Id", orderId);
-            para[2] = new MySqlParameter("_mode", mode);
-            return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, query, para);
+        string query = "sp_zlOrderPlace";
+        MySqlParameter[] para = new MySqlParameter[3];
+        para[0] = new MySqlParameter("_userid", userId);
+        para[1] = new MySqlParameter("_order_Id", orderId);
+        para[2] = new MySqlParameter("_mode", mode);
+        return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, query, para);
     }
 
     public DataTable Agentlogin(Property objProp)
@@ -202,7 +202,7 @@ public class BusinessLogic
         try
         {
             objProp.Query = "sp_createUser";
-            MySqlParameter[] para = new MySqlParameter[18];
+            MySqlParameter[] para = new MySqlParameter[19];
             para[0] = new MySqlParameter("_userName", objProp.Username);
             para[1] = new MySqlParameter("_usermobile", objProp.Mobile);
             para[2] = new MySqlParameter("_useremail", objProp.emailID);
@@ -222,6 +222,7 @@ public class BusinessLogic
             para[15] = new MySqlParameter("gst", objProp.GST);
             para[16] = new MySqlParameter("licenseNo", objProp.licenseNo);
             para[17] = new MySqlParameter("dob", objProp.dob);
+            para[18] = new MySqlParameter("bankDetails", objProp.BankDetails);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
         catch (Exception ex)
@@ -969,7 +970,7 @@ public class BusinessLogic
         {
 
             string file;
-            if(objProp.image != null || !string.IsNullOrEmpty(objProp.image))
+            if (objProp.image != null || !string.IsNullOrEmpty(objProp.image))
             {
                 string path = ConfigurationManager.AppSettings["OfferImagePath"];
                 string filePath = AppDomain.CurrentDomain.BaseDirectory + path;
@@ -1232,9 +1233,18 @@ public class BusinessLogic
         DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
     }
 
-    public DataSet GetProductRequests()
+    public DataSet GetProductRequests(string userId)
     {
-        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, "SELECT * FROM ProductRequest ORDER BY Id Desc;");
+        string query = "";
+        if (userId == null)
+        {
+            query = "SELECT * FROM ProductRequest ORDER BY Id Desc;";
+        }
+        else
+        {
+            query = $"SELECT * FROM ProductRequest WHERE UserId = {userId} ORDER BY Id Desc;";
+        }
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
         return ds;
     }
 

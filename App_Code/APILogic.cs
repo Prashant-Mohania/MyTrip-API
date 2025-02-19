@@ -716,6 +716,7 @@ public class APILogic
             objProp.Password = CreateRandomPassword(10);
             objProp.GST = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "GST", "");
             objProp.licenseNo = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "licenseNo", "");
+            objProp.BankDetails = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "bankDetails", "");
             if (DateTime.TryParseExact(Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "dob", ""), "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out DateTime dob))
             {
                 objProp.dob = dob;
@@ -2660,7 +2661,21 @@ public class APILogic
         ResponseModel<bool> response = null;
         try
         {
-            var image = HttpContext.Current.Request.Files["image"];
+            List<HttpPostedFile> images = new List<HttpPostedFile>();
+
+            for(int i = 0; i < HttpContext.Current.Request.Files.Count; i++)
+            {
+                HttpPostedFile img = HttpContext.Current.Request.Files[i];
+
+                if(img != null && img.ContentLength > 0)
+                {
+                    images.Add(img);
+                }
+            }
+            
+
+
+
             int userId = Convert.ToInt16(HttpContext.Current.Request.Form["userId"].ToString());
             string composition = HttpContext.Current.Request.Form["composition"];
             if (userId == 0)
@@ -2676,11 +2691,14 @@ public class APILogic
 
             string imgPath = "";
 
-            if (image != null)
+            foreach(HttpPostedFile img in images)
             {
-                imgPath = Utils.SaveRequestedImage(image, "ProductRequestPath");
+                imgPath += Utils.SaveRequestedImage(img, "ProductRequestPath");
+                if(images.Count() != (images.IndexOf(img) + 1))
+                {
+                    imgPath += ",";
+                }
             }
-
 
             blogs.AddProductRequest(userId, composition, imgPath);
             response = new ResponseModel<bool>(true, "Product request added successfully");
@@ -2722,7 +2740,8 @@ public class APILogic
         ResponseModel<List<ProductRequestModel>> response = null;
         try
         {
-            DataSet data = blogs.GetProductRequests();
+            string userId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "userId", null);
+            DataSet data = blogs.GetProductRequests(userId);
             if (data == null || data.Tables.Count == 0 || data.Tables[0].Rows.Count == 0)
             {
                 return new ResponseModel<List<ProductRequestModel>>(new List<ProductRequestModel>(), "No product requests found");
@@ -2736,7 +2755,8 @@ public class APILogic
                                Id = Convert.ToInt32(x["Id"]),
                                UserId = Convert.ToInt32(x["UserId"]),
                                Composition = Convert.ToString(x["Composition"]),
-                               Image = $"{baseUrl}{path}{x["Image"]}",
+                               //Image = $"{baseUrl}{path}{x["Image"].ToString().Split(";,;")}",
+                               Image = string.Join(",", x["Image"].ToString().Split(',').Select(d => $"{baseUrl}{path}{d}").ToArray()),
                                CreatedAt = Convert.ToDateTime(x["CreatedAt"])
                            })
                            .ToList();
@@ -2748,7 +2768,6 @@ public class APILogic
         }
         return response;
     }
-
 
     public ResponseModel<bool> OrderSheetToCart(Property objProp)
     {
