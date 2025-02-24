@@ -238,7 +238,7 @@ public class BusinessLogic
         {
 
             objProp.Query = "sp_updateProfile";
-            MySqlParameter[] para = new MySqlParameter[14];
+            MySqlParameter[] para = new MySqlParameter[15];
             para[0] = new MySqlParameter("_userID", objProp.UserId);
             para[1] = new MySqlParameter("_address", objProp.Address);
             para[2] = new MySqlParameter("_pincode", objProp.Pincode);
@@ -254,6 +254,7 @@ public class BusinessLogic
             para[11] = new MySqlParameter("gst", objProp.GST);
             para[12] = new MySqlParameter("licenseNo", objProp.licenseNo);
             para[13] = new MySqlParameter("dob", objProp.dob);
+            para[14] = new MySqlParameter("bankDetails", objProp.BankDetails);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
         catch (Exception ex)
@@ -938,7 +939,7 @@ public class BusinessLogic
             try
             {
                 objProp.Query = "sp_productUpdate";
-                MySqlParameter[] para = new MySqlParameter[14];
+                MySqlParameter[] para = new MySqlParameter[15];
                 para[0] = new MySqlParameter("_productId", objProp.ProductId);
                 para[1] = new MySqlParameter("_itemCode", objProp.ItemCode);
                 para[2] = new MySqlParameter("_itemName", objProp.ItemName);
@@ -953,6 +954,7 @@ public class BusinessLogic
                 para[11] = new MySqlParameter("_F5", objProp.F5);
                 para[12] = new MySqlParameter("_prodImages", objProp.image);
                 para[13] = new MySqlParameter("_categoryIds", categoryIds);
+                para[14] = new MySqlParameter("_tags", objProp.tags);
                 objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
             }
             catch (Exception ex)
@@ -1064,6 +1066,16 @@ public class BusinessLogic
         para[1] = new MySqlParameter("PageNumber", pageNumber);
         para[2] = new MySqlParameter("PageCount", pageCount);
         var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_GetPreviouslyOrderedProducts", para);
+        return ds;
+    }
+
+    public DataSet GetTagProducts(string tag, int pageCount = 1, int pageNumber = 10)
+    {
+        MySqlParameter[] para = new MySqlParameter[3];
+        para[0] = new MySqlParameter("tag", tag);
+        para[1] = new MySqlParameter("PageNumber", pageNumber);
+        para[2] = new MySqlParameter("PageCount", pageCount);
+        var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_getTagProducts", para);
         return ds;
     }
 
@@ -1331,5 +1343,12 @@ public class BusinessLogic
     {
         var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $@"SELECT * FROM GiftScheme WHERE Id = {id};");
         return ds;
+    }
+    
+    public DataSet SearchProduct(string searchVal)
+    {
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("_SearchValue", searchVal);
+        return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "SearchProducts", para);
     }
 }

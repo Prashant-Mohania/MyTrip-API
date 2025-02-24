@@ -128,6 +128,7 @@ public class Property
     public string BannerId { get; set; }
     public string bannerName { get; set; }
     public string image { get; set; }
+    public string tags { get; set; }
     public string sequence { get; set; }
     public List<string> states { get; set; }
     public string OrderId { get; set; }

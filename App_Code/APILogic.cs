@@ -93,7 +93,7 @@ public class APILogic
             //case "DownloadExcel": jsonResponse = DownloadOrderExcel(objProp); break;
             case "GetFrequentlyBoughtProducts": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
             case "GetPreviouslyOrderedProducts": jsonResponse = GetPreviouslyOrderedProducts(objProp); break;
-            case "GetNewArrivals": jsonResponse = GetFrequentlyBoughtProducts(objProp); break;
+            case "GetNewArrivals": jsonResponse = GetNewArrivalProducts(objProp); break;
             case "GetReturnProducts": jsonResponse = GetReturnProducts(objProp); break;
             case "GetReturnProductsAdmin": jsonResponse = GetReturnProductsAdmin(objProp); break;
             case "UpdateReturnProductsAdmin": jsonResponse = UpdateReturnProductsAdmin(objProp); break;
@@ -115,6 +115,7 @@ public class APILogic
             case "GetGiftSchemeById": jsonResponse = GetGiftSchemeById(objProp); break;
             case "CreateOrder": jsonResponse = CreateOrder(objProp); break;
             case "VerifyPayment": jsonResponse = VerifyPayment(objProp); break;
+            case "SearchProduct": jsonResponse = SearchProduct(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -168,6 +169,30 @@ public class APILogic
         }
         return objProvider;
     }
+
+    public List<ProductListRoot> GetNewArrivalProducts(Property objProp)
+    {
+        string path = ConfigurationManager.AppSettings["ProductPath"];
+        string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+        int pageNumber = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "pageNumber", 1);
+        int pageCount = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "pageCount", 10);
+
+        List<ProductListRoot> objProvider = new List<ProductListRoot>();
+        DataSet dsProvider = blogs.GetTagProducts("New Arrival", pageCount, pageNumber);
+        try
+        {
+            DataTable dtProvider = new DataTable("OrdersList");
+            dtProvider = dsProvider.Tables[0];
+            var c = (from x in dtProvider.AsEnumerable() select MapProductList(x, baseUrl, path));
+            objProvider = c.ToList();
+        }
+        catch (Exception ex)
+        {
+            objProp.Result = ex.Message;
+        }
+        return objProvider;
+    }
+
 
     public List<ReturnProductModel> GetReturnProducts(Property objProp)
     {
@@ -435,6 +460,10 @@ public class APILogic
                         objLogin.StoreCode = Convert.ToString(dr["StoreCode"]);
                         objLogin.StoreName = Convert.ToString(dr["StoreName"]);
                         objLogin.Usertype = Convert.ToString(dr["Usertype"]);
+                        objLogin.GST = Convert.ToString(dr["gst"]);
+                        objLogin.licenseNo = Convert.ToString(dr["licenseNo"]);
+                        objLogin.dob = dr["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(dr["dob"]);
+                        objLogin.BankDetails = Convert.ToString(dr["bankDetails"]);
                         objLogin.Zone = Convert.ToString(dr["Zone"]);
                         objLogin.Result = Convert.ToString(dr["Result"]);
                     }
@@ -767,8 +796,10 @@ public class APILogic
             objProp.CityId = objProp.SplitValueEncode[9].Split('=')[1].ToString().Trim() != "" ? Convert.ToInt32(objProp.SplitValueEncode[9].Split('=')[1].ToString().Trim()) : (int?)null;
             objProp.StateId = objProp.SplitValueEncode[10].Split('=')[1].ToString().Trim() != "" ? Convert.ToInt32(objProp.SplitValueEncode[10].Split('=')[1].ToString().Trim()) : (int?)null;
             objProp.CitiesIds = Cities;
+            objProp.Password = CreateRandomPassword(10);
             objProp.GST = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "GST", "");
             objProp.licenseNo = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "licenseNo", "");
+            objProp.BankDetails = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "bankDetails", "");
             if (DateTime.TryParseExact(Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "dob", ""), "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out DateTime dob))
             {
                 objProp.dob = dob;
@@ -1251,7 +1282,12 @@ public class APILogic
                          Zone = Convert.ToString(x["Zone"]),
                          City = Convert.ToString(x["City"]),
                          State = Convert.ToString(x["State"]),
-                         Regional_Cites = Convert.ToString(x["RegionalCities"])
+                         Regional_Cites = Convert.ToString(x["RegionalCities"]),
+                         GST = x["gst"] == null? null : Convert.ToString(x["gst"]),
+                         licenseNo = x["licenseNo"] == null ? null : Convert.ToString(x["licenseNo"]),
+                         dob = x["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(x["dob"]),
+                         BankDetails = x["bankDetails"] == null ? null : Convert.ToString(x["bankDetails"]),
+
                      });
             objProvider = c.ToList();
         }
@@ -1298,6 +1334,10 @@ public class APILogic
                         objLogin.Zone = Convert.ToString(dr["Zone"]);
                         objLogin.Result = Convert.ToString(dr["Result"]);
                         objLogin.CitiesIds = Convert.ToString(dr["CitiesIds"]);
+                        objLogin.GST = dr["gst"] == null ? null : Convert.ToString(dr["gst"]);
+                        objLogin.licenseNo = dr["licenseNo"] == null ? null : Convert.ToString(dr["licenseNo"]);
+                        objLogin.dob = dr["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(dr["dob"]);
+                        objLogin.BankDetails = dr["bankDetails"] == null ? null : Convert.ToString(dr["bankDetails"]);
                     }
                 }
                 return objLogin;
@@ -2055,6 +2095,7 @@ public class APILogic
             var F5 = HttpContext.Current.Request.Form["F_5"];
             var ImageUrl = HttpContext.Current.Request.Form["ImageUrl"];
             var categoryIds = HttpContext.Current.Request.Form["categoryIds"];
+            var tags = HttpContext.Current.Request.Form["tags"];
             //var Image = HttpContext.Current.Request.Files["Image"];
 
 
@@ -2071,6 +2112,7 @@ public class APILogic
             objProp.F4 = F4;
             objProp.F5 = F5;
             objProp.image = ImageUrl;
+            objProp.tags = tags;
 
 
 
@@ -3089,6 +3131,33 @@ public class APILogic
 
     }
 
+    public ResponseModel<List<ProductListRoot>> SearchProduct(Property objProp)
+    {
+        ResponseModel<List<ProductListRoot>> response = null;
+        try
+        {
+            string search = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "search", "");
+            if (string.IsNullOrEmpty(search))
+            {
+                response = new ResponseModel<List<ProductListRoot>>("Search text is required");
+                return response;
+            }
+            DataSet data = blogs.SearchProduct(search);
+            string path = ConfigurationManager.AppSettings["ProductPath"];
+            string baseUrl = $"http://{HttpContext.Current.Request.Url.Authority}/";
+            var products = data.Tables[0]
+                           .AsEnumerable()
+                           .Select(x => MapProductList(x, baseUrl, path))
+                           .ToList();
+            response = new ResponseModel<List<ProductListRoot>>(products, "Products fetched successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<List<ProductListRoot>>(ex.Message);
+        }
+        return response;
+    }
+
     private ProductListRoot MapProductList(DataRow data, string baseUrl, string path)
     {
         return new ProductListRoot
@@ -3107,7 +3176,8 @@ public class APILogic
             F_5 = Convert.ToString(data["F_5"]),
             Image = baseUrl + path + Convert.ToString(data["prod_images"]),
             Categories = data.Table.Columns.Contains("Category") ? JsonConvert.DeserializeObject<List<CategoryModel>>(Convert.ToString(data["Category"])) : null,
-            Offers = data.Table.Columns.Contains("offers") ? Convert.ToString(data["offers"]) : ""
+            Offers = data.Table.Columns.Contains("offers") ? Convert.ToString(data["offers"]) : "",
+            tags = data.Table.Columns.Contains("tags") ? Convert.ToString(data["tags"]) : "",
         };
     }
 
@@ -3253,6 +3323,10 @@ public class APILogic
         public string Banner { get; set; }
         public string CitiesIds { get; set; }
         public string Regional_Cites { get; set; }
+        public string GST { get; set; }
+        public string licenseNo { get; set; }
+        public DateTime dob { get; set; }
+        public string BankDetails { get; set; }
     }
 
     public class ProductListRoot
@@ -3277,6 +3351,7 @@ public class APILogic
         public string Result { get; set; }
         public List<CategoryModel> Categories { get; set; }
         public string Offers { get; set; }
+        public string tags { get; set; }
 
     }
     public class OfferListRoot
