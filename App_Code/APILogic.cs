@@ -116,6 +116,7 @@ public class APILogic
             case "CreateOrder": jsonResponse = CreateOrder(objProp); break;
             case "VerifyPayment": jsonResponse = VerifyPayment(objProp); break;
             case "SearchProduct": jsonResponse = SearchProduct(objProp); break;
+            case "Reorder": jsonResponse = Reorder(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -3154,6 +3155,35 @@ public class APILogic
         catch (Exception ex)
         {
             response = new ResponseModel<List<ProductListRoot>>(ex.Message);
+        }
+        return response;
+    }
+
+    public ResponseModel<bool> Reorder(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+        try
+        {
+            string orderId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderId", "");
+            string userId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "userId", "");
+            if (string.IsNullOrEmpty(orderId))
+            {
+                response = new ResponseModel<bool>("OrderId is required");
+                return response;
+            }
+
+            if(string.IsNullOrEmpty(userId))
+            {
+                response = new ResponseModel<bool>("UserId is required");
+                return response;
+            }
+
+            DataSet data = blogs.Reorder(orderId, userId);
+            response = new ResponseModel<bool>(true, "Order placed successfully");
+        }
+        catch (Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
         }
         return response;
     }

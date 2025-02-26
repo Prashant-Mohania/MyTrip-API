@@ -1351,4 +1351,12 @@ public class BusinessLogic
         para[0] = new MySqlParameter("_SearchValue", searchVal);
         return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "SearchProducts", para);
     }
+
+    public DataSet Reorder(string orderId, string userId)
+    {
+        MySqlParameter[] para = new MySqlParameter[2];
+        para[0] = new MySqlParameter("_orderID", orderId);
+        para[1] = new MySqlParameter("_userid", userId);
+        return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_zlReorder", para);
+    }
 }
