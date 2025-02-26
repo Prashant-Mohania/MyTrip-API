@@ -177,4 +177,6 @@ public class Property
     public string licenseNo { get; set; }
     public DateTime dob { get; set; }
     public string BankDetails { get; set; }
+    public int Available_limit { get; set; }
+    public int credit_limit { get; set; }
 }

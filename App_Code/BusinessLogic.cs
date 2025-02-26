@@ -12,6 +12,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Web;
+using System.Web.UI.WebControls.WebParts;
 using static APILogic;
 
 
@@ -202,7 +203,7 @@ public class BusinessLogic
         try
         {
             objProp.Query = "sp_createUser";
-            MySqlParameter[] para = new MySqlParameter[19];
+            MySqlParameter[] para = new MySqlParameter[20];
             para[0] = new MySqlParameter("_userName", objProp.Username);
             para[1] = new MySqlParameter("_usermobile", objProp.Mobile);
             para[2] = new MySqlParameter("_useremail", objProp.emailID);
@@ -223,6 +224,7 @@ public class BusinessLogic
             para[16] = new MySqlParameter("licenseNo", objProp.licenseNo);
             para[17] = new MySqlParameter("dob", objProp.dob);
             para[18] = new MySqlParameter("bankDetails", objProp.BankDetails);
+            para[18] = new MySqlParameter("credit_limit", objProp.credit_limit);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
         catch (Exception ex)
@@ -238,7 +240,7 @@ public class BusinessLogic
         {
 
             objProp.Query = "sp_updateProfile";
-            MySqlParameter[] para = new MySqlParameter[15];
+            MySqlParameter[] para = new MySqlParameter[17];
             para[0] = new MySqlParameter("_userID", objProp.UserId);
             para[1] = new MySqlParameter("_address", objProp.Address);
             para[2] = new MySqlParameter("_pincode", objProp.Pincode);
@@ -255,6 +257,8 @@ public class BusinessLogic
             para[12] = new MySqlParameter("licenseNo", objProp.licenseNo);
             para[13] = new MySqlParameter("dob", objProp.dob);
             para[14] = new MySqlParameter("bankDetails", objProp.BankDetails);
+            para[15] = new MySqlParameter("credit_limit", objProp.credit_limit);
+            para[16] = new MySqlParameter("available_limit", objProp.Available_limit);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
         catch (Exception ex)
@@ -1358,5 +1362,13 @@ public class BusinessLogic
         para[0] = new MySqlParameter("_orderID", orderId);
         para[1] = new MySqlParameter("_userid", userId);
         return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_zlReorder", para);
+    }
+    public void PayementRecieved(string userId, double amount)
+    {
+        string userLimitQuery = $"UPDATE `zeeuser_login` SET `available_limit` = `available_limit` + {amount} WHERE `userId` = {userId};";
+        DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, userLimitQuery);
+
+        string creditHistoryQuery = $"INSERT INTO `Credit_history` (`userId`, `amount`, `type`) VALUES ({userId}, {amount}, 'credit');";
+        DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, creditHistoryQuery);
     }
 }

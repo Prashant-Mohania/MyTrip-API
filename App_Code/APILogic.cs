@@ -117,6 +117,7 @@ public class APILogic
             case "VerifyPayment": jsonResponse = VerifyPayment(objProp); break;
             case "SearchProduct": jsonResponse = SearchProduct(objProp); break;
             case "Reorder": jsonResponse = Reorder(objProp); break;
+            case "PayementRecieved": jsonResponse = PayementRecieved(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -465,6 +466,8 @@ public class APILogic
                         objLogin.licenseNo = Convert.ToString(dr["licenseNo"]);
                         objLogin.dob = dr["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(dr["dob"]);
                         objLogin.BankDetails = Convert.ToString(dr["bankDetails"]);
+                        objLogin.credit_limit = Convert.ToString(dr["credit_limit"]);
+                        objLogin.available_limit = Convert.ToString(dr["available_limit"]);
                         objLogin.Zone = Convert.ToString(dr["Zone"]);
                         objLogin.Result = Convert.ToString(dr["Result"]);
                     }
@@ -747,6 +750,7 @@ public class APILogic
             objProp.GST = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "GST", "");
             objProp.licenseNo = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "licenseNo", "");
             objProp.BankDetails = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "bankDetails", "");
+            objProp.credit_limit = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "credit_limit", 0);
             if (DateTime.TryParseExact(Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "dob", ""), "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out DateTime dob))
             {
                 objProp.dob = dob;
@@ -801,6 +805,8 @@ public class APILogic
             objProp.GST = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "GST", "");
             objProp.licenseNo = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "licenseNo", "");
             objProp.BankDetails = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "bankDetails", "");
+            objProp.credit_limit = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "credit_limit", 0);
+            objProp.Available_limit = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "available_limit", 0);
             if (DateTime.TryParseExact(Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "dob", ""), "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out DateTime dob))
             {
                 objProp.dob = dob;
@@ -1288,6 +1294,9 @@ public class APILogic
                          licenseNo = x["licenseNo"] == null ? null : Convert.ToString(x["licenseNo"]),
                          dob = x["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(x["dob"]),
                          BankDetails = x["bankDetails"] == null ? null : Convert.ToString(x["bankDetails"]),
+                         credit_limit = Convert.ToString(x["credit_limit"]),
+                         available_limit = Convert.ToString(x["available_limit"]),
+
 
                      });
             objProvider = c.ToList();
@@ -1339,6 +1348,8 @@ public class APILogic
                         objLogin.licenseNo = dr["licenseNo"] == null ? null : Convert.ToString(dr["licenseNo"]);
                         objLogin.dob = dr["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(dr["dob"]);
                         objLogin.BankDetails = dr["bankDetails"] == null ? null : Convert.ToString(dr["bankDetails"]);
+                        objLogin.credit_limit = dr["credit_limit"] == null ? null : Convert.ToString(dr["credit_limit"]);
+                        objLogin.available_limit = dr["available_limit"] == null ? null : Convert.ToString(dr["available_limit"]);
                     }
                 }
                 return objLogin;
@@ -3188,6 +3199,32 @@ public class APILogic
         return response;
     }
 
+    public ResponseModel<bool> PayementRecieved(Property objProp)
+    {
+        try
+        {
+            string userId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "userId", "");
+            double amount = Utils.GetEncodeValue<double>(objProp.SplitValueEncode, "amount", 0);
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return new ResponseModel<bool>("userId is Required");
+            }
+
+            if (amount < 0)
+            {
+                return new ResponseModel<bool>("Amount is required and should be greater then 0.");
+            }
+
+            blogs.PayementRecieved(userId, amount);
+
+            return new ResponseModel<bool>(true, "Success");
+        }
+        catch(Exception ex)
+        {
+            return new ResponseModel<bool>(ex.Message);
+        }
+    }
     private ProductListRoot MapProductList(DataRow data, string baseUrl, string path)
     {
         return new ProductListRoot
@@ -3357,6 +3394,8 @@ public class APILogic
         public string licenseNo { get; set; }
         public DateTime dob { get; set; }
         public string BankDetails { get; set; }
+        public string credit_limit { get; set; }
+        public string available_limit { get; set; }
     }
 
     public class ProductListRoot
