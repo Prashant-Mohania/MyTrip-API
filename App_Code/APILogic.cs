@@ -19,6 +19,7 @@ using cashfree_pg.Client;
 using cashfree_pg.Model;
 using System.Net;
 using static APILogic;
+using DocumentFormat.OpenXml;
 
 /// <summary>
 /// Summary description for BusinessLogic
@@ -118,6 +119,7 @@ public class APILogic
             case "SearchProduct": jsonResponse = SearchProduct(objProp); break;
             case "Reorder": jsonResponse = Reorder(objProp); break;
             case "PayementRecieved": jsonResponse = PayementRecieved(objProp); break;
+            case "OrderStatusUpdate": jsonResponse = OrderStatusUpdate(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -533,9 +535,9 @@ public class APILogic
                     return addcart;
                 }
 
-                string mode = string.IsNullOrEmpty(orderId) ? "COD": "Online";
+                string mode = string.IsNullOrEmpty(orderId) ? "COD" : "Online";
                 objProp.DataSet = blogs.GetOrderPlace(objProp.UserId, orderId, mode);
-                
+
                 if (objProp.DataSet.Tables[0].Rows.Count > 0)
                 {
                     if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
@@ -1290,7 +1292,7 @@ public class APILogic
                          City = Convert.ToString(x["City"]),
                          State = Convert.ToString(x["State"]),
                          Regional_Cites = Convert.ToString(x["RegionalCities"]),
-                         GST = x["gst"] == null? null : Convert.ToString(x["gst"]),
+                         GST = x["gst"] == null ? null : Convert.ToString(x["gst"]),
                          licenseNo = x["licenseNo"] == null ? null : Convert.ToString(x["licenseNo"]),
                          dob = x["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(x["dob"]),
                          BankDetails = x["bankDetails"] == null ? null : Convert.ToString(x["bankDetails"]),
@@ -1486,7 +1488,8 @@ public class APILogic
                          ShipDate = Convert.ToString(x["OrderInDate"]),
                          StatusId = Convert.ToString(x["StatusId"]),
                          Status = Convert.ToString(x["Status"]),
-                         TotalAmount = Convert.ToString(x["TotalAmount"])
+                         TotalAmount = Convert.ToString(x["TotalAmount"]),
+
                      });
             objProvider = c.ToList();
         }
@@ -2111,6 +2114,41 @@ public class APILogic
             //var Image = HttpContext.Current.Request.Files["Image"];
 
 
+            List<HttpPostedFile> images = new List<HttpPostedFile>();
+
+            for (int i = 0; i < HttpContext.Current.Request.Files.Count; i++)
+            {
+                HttpPostedFile img = HttpContext.Current.Request.Files[i];
+
+                if (img != null && img.ContentLength > 0)
+                {
+                    images.Add(img);
+                }
+            }
+
+            if (ImageUrl == "null" || string.IsNullOrEmpty(ImageUrl))
+            {
+                ImageUrl = "";
+            }
+            else
+            {
+                var commaSplited = ImageUrl.Split(',');
+                var splitedImageName = commaSplited.Select(i => i.Split('/').Last());
+                ImageUrl = string.Join(",", splitedImageName);
+            }
+            
+            if (!string.IsNullOrEmpty(ImageUrl) && images.Count() > 0) ImageUrl += ",";
+
+            foreach (HttpPostedFile img in images)
+            {
+                ImageUrl += Utils.SaveRequestedImage(img, "ProductRequestPath");
+                if (images.Count() != (images.IndexOf(img) + 1))
+                {
+                    ImageUrl += ",";
+                }
+            }
+
+
             objProp.ProductId = ProductId;
             objProp.ItemCode = ItemCode;
             objProp.ItemName = ItemName;
@@ -2412,6 +2450,8 @@ public class APILogic
                         objOrder.BillDate = Convert.ToString(dr["OrderDate"]);
                         objOrder.ShipDate = Convert.ToString(dr["OrderInDate"]);
                         objOrder.TotalAmount = Convert.ToString(dr["TotalAmount"]);
+                        objOrder.trackingId = Convert.ToString(dr["trackingId"]);
+                        objOrder.Status = Convert.ToString(dr["Status"]);
                         objOrder.Result = Convert.ToString(dr["Result"]);
                         objOrder.Productdetails = itemListData;
 
@@ -2491,7 +2531,7 @@ public class APILogic
 
             response = new ResponseModel<CategoryModel>(category, "Category add successfully.");
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             response = new ResponseModel<CategoryModel>(ex.Message);
         }
@@ -2717,16 +2757,16 @@ public class APILogic
         {
             List<HttpPostedFile> images = new List<HttpPostedFile>();
 
-            for(int i = 0; i < HttpContext.Current.Request.Files.Count; i++)
+            for (int i = 0; i < HttpContext.Current.Request.Files.Count; i++)
             {
                 HttpPostedFile img = HttpContext.Current.Request.Files[i];
 
-                if(img != null && img.ContentLength > 0)
+                if (img != null && img.ContentLength > 0)
                 {
                     images.Add(img);
                 }
             }
-            
+
 
 
 
@@ -2745,10 +2785,10 @@ public class APILogic
 
             string imgPath = "";
 
-            foreach(HttpPostedFile img in images)
+            foreach (HttpPostedFile img in images)
             {
                 imgPath += Utils.SaveRequestedImage(img, "ProductRequestPath");
-                if(images.Count() != (images.IndexOf(img) + 1))
+                if (images.Count() != (images.IndexOf(img) + 1))
                 {
                     imgPath += ",";
                 }
@@ -3072,7 +3112,7 @@ public class APILogic
                 response = new ResponseModel<Dictionary<string, string>>("User Id is required");
                 return response;
             }
-            
+
             if (string.IsNullOrEmpty(userName))
             {
                 response = new ResponseModel<Dictionary<string, string>>("userName is required");
@@ -3106,7 +3146,7 @@ public class APILogic
                 response = new ResponseModel<Dictionary<string, string>>(e.Message);
             }
             //blogs.CreateOrder(userId);
-            
+
         }
         catch (Exception ex)
         {
@@ -3123,7 +3163,7 @@ public class APILogic
             string orderId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderId", "");
             if (string.IsNullOrEmpty(orderId))
             {
-                return new ResponseModel<OrderEntity>("orderId is required.") ;
+                return new ResponseModel<OrderEntity>("orderId is required.");
             }
             Cashfree.XClientId = "TEST10437818e09024c9be7f3f5fe43581873401";
             Cashfree.XClientSecret = "cfsk_ma_test_72582f14312271ea5b355a78350db1ff_e17c5789";
@@ -3183,7 +3223,7 @@ public class APILogic
                 return response;
             }
 
-            if(string.IsNullOrEmpty(userId))
+            if (string.IsNullOrEmpty(userId))
             {
                 response = new ResponseModel<bool>("UserId is required");
                 return response;
@@ -3220,11 +3260,49 @@ public class APILogic
 
             return new ResponseModel<bool>(true, "Success");
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             return new ResponseModel<bool>(ex.Message);
         }
     }
+
+    public ResponseModel<bool> OrderStatusUpdate(Property objProp)
+    {
+        try
+        {
+            string orderId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderId", "");
+            string orderStatus = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderStatus", "");
+            string trackingId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "trackingId", "");
+
+            int orderStatusId = 0;
+            if (orderStatus == "Dispatched")
+            {
+                orderStatusId = 2;
+                if (string.IsNullOrEmpty(trackingId))
+                {
+                    return new ResponseModel<bool>("Tracking id is required");
+                }
+            }
+            else if (orderStatus == "Delivered")
+            {
+                orderStatusId = 5;
+            }
+
+            if (orderStatusId == 0)
+            {
+                return new ResponseModel<bool>("Order Status is not valid.");
+            }
+
+            blogs.UpdateOrderStatus(orderId, orderStatusId, trackingId);
+
+            return new ResponseModel<bool>("Success");
+        }
+        catch (Exception ex)
+        {
+            return new ResponseModel<bool>(ex.Message);
+        }
+    }
+
     private ProductListRoot MapProductList(DataRow data, string baseUrl, string path)
     {
         return new ProductListRoot
@@ -3241,7 +3319,7 @@ public class APILogic
             F_3 = Convert.ToString(data["F_3"]),
             F_4 = Utils.FormatProductF4(Convert.ToString(data["F_4"])),
             F_5 = Convert.ToString(data["F_5"]),
-            Image = baseUrl + path + Convert.ToString(data["prod_images"]),
+            Image = data["prod_images"] != null && data["prod_images"].ToString() != "null" && !string.IsNullOrEmpty($"{data["prod_images"]}") ? string.Join(",", data["prod_images"].ToString().Split(',').Select(d => $"{baseUrl}{path}{d}").ToArray()) : null,
             Categories = data.Table.Columns.Contains("Category") ? JsonConvert.DeserializeObject<List<CategoryModel>>(Convert.ToString(data["Category"])) : null,
             Offers = data.Table.Columns.Contains("offers") ? Convert.ToString(data["offers"]) : "",
             tags = data.Table.Columns.Contains("tags") ? Convert.ToString(data["tags"]) : "",
@@ -3349,6 +3427,7 @@ public class APILogic
         public string StatusId { get; set; }
         public string SalesQuotation { get; set; }
         public int Totality { get; set; }
+        public string trackingId { get; set; }
         public List<ProductDetails> Productdetails { get; set; }
 
     }

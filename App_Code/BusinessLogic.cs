@@ -929,16 +929,16 @@ public class BusinessLogic
 
         if (files != null)
         {
-            var httpRequest = HttpContext.Current.Request;
-            if (httpRequest.Files.Count > 0)
-            {
-                var file = httpRequest.Files[0];
-                if (!Directory.Exists(filePath))
-                {
-                    Directory.CreateDirectory(filePath);
-                }
-                file.SaveAs(filePath + files);
-            }
+            //var httpRequest = HttpContext.Current.Request;
+            //if (httpRequest.Files.Count > 0)
+            //{
+            //    var file = httpRequest.Files[0];
+            //    if (!Directory.Exists(filePath))
+            //    {
+            //        Directory.CreateDirectory(filePath);
+            //    }
+            //    file.SaveAs(filePath + files);
+            //}
 
             try
             {
@@ -1370,5 +1370,12 @@ public class BusinessLogic
 
         string creditHistoryQuery = $"INSERT INTO `Credit_history` (`userId`, `amount`, `type`) VALUES ({userId}, {amount}, 'credit');";
         DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, creditHistoryQuery);
+    }
+
+    public void UpdateOrderStatus(string orderId, int orderStatusId, string trackingId)
+    {
+        string query = $"update zeeorder_track set SAPOrderStatusId = {orderStatusId}, trackingId = '{trackingId}' where zl_orderID = '{orderId}'";
+
+        DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
     }
 }

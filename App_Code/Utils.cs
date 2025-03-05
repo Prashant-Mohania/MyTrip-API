@@ -82,7 +82,7 @@ public class Utils
             Directory.CreateDirectory(folderPath);
         }
 
-        string fileName = Path.GetFileName(file.FileName);
+        string fileName = DateTime.Now.ToString("ddMMyyyyTHHmmssfff") + Path.GetExtension(file.FileName);
         string filePath = Path.Combine(folderPath, fileName);
         file.SaveAs(filePath);
         return fileName;
