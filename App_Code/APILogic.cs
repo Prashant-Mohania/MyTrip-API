@@ -692,6 +692,8 @@ public class APILogic
                 objProvider.SalesQuotation = dtProvider.Rows[0]["SaleQuotation"].ToString();
                 int sum = 0;
                 objProvider.totalamount = sum;
+                objProvider.trackingId = dtProvider.Rows[0]["trackingId"].ToString();
+                objProvider.paymentMode = dtProvider.Rows[0]["paymentMode"].ToString();
                 var c = (from x in dtProvider.AsEnumerable()
                          select new Product
                          {
@@ -707,7 +709,9 @@ public class APILogic
                              Status = Convert.ToString(x["Status"]),
                              Date = Convert.ToString(x["Date"]),
                              Tamount = Convert.ToString(x["Tamount"]),
-                             image = baseUrl + path + Convert.ToString(x["image"]),
+                             image = x["image"] == null || string.IsNullOrWhiteSpace(x["image"].ToString()) ? "" : baseUrl + path + Convert.ToString(x["image"]),
+                             trackingId = x["trackingId"] == null || string.IsNullOrWhiteSpace(x["trackingId"].ToString()) ? "" : baseUrl + path + Convert.ToString(x["trackingId"]),
+                             paymentMode = Convert.ToString(x["paymentMode"]),
 
                          });
                 objProviders = c.ToList();
@@ -915,7 +919,8 @@ public class APILogic
                          StoreName = Convert.ToString(x["StoreName"]),
                          StatusId = Convert.ToString(x["StatusId"]),
                          SalesQuotation = Convert.ToString(x["SaleQuotation"]),
-                         Totality = Convert.ToInt32(x["Totality"])
+                         Totality = Convert.ToInt32(x["Totality"]),
+                         trackingId = Convert.ToString(x["trackingId"]),
                      });
             objProvider = c.ToList();
         }
@@ -2141,7 +2146,7 @@ public class APILogic
 
             foreach (HttpPostedFile img in images)
             {
-                ImageUrl += Utils.SaveRequestedImage(img, "ProductRequestPath");
+                ImageUrl += Utils.SaveRequestedImage(img, "ProductPath");
                 if (images.Count() != (images.IndexOf(img) + 1))
                 {
                     ImageUrl += ",";
@@ -2454,6 +2459,8 @@ public class APILogic
                         objOrder.Status = Convert.ToString(dr["Status"]);
                         objOrder.Result = Convert.ToString(dr["Result"]);
                         objOrder.Productdetails = itemListData;
+                        objOrder.trackingId = Convert.ToString(dr["trackingId"]);
+                        objOrder.paymentMode = Convert.ToString(dr["paymentMode"]);
 
                     }
                 }
@@ -3135,7 +3142,7 @@ public class APILogic
                 var result = PaymentGatewayService.CreateOrder(userName, userNumber, amount);
                 Dictionary<string, string> res = new Dictionary<string, string>();
                 res.Add("orderId", result.order_id);
-                res.Add("sessionId", result.payment_session_id);
+                //res.Add("sessionId", result.payment_session_id);
                 response = new ResponseModel<Dictionary<string, string>>(res, "");
             }
             catch (ApiException e)
@@ -3295,7 +3302,7 @@ public class APILogic
 
             blogs.UpdateOrderStatus(orderId, orderStatusId, trackingId);
 
-            return new ResponseModel<bool>("Success");
+            return new ResponseModel<bool>(true, "Success");
         }
         catch (Exception ex)
         {
@@ -3317,9 +3324,9 @@ public class APILogic
             GST = Convert.ToString(data["F_1"]),
             PTR = Convert.ToString(data["F_2"]),
             F_3 = Convert.ToString(data["F_3"]),
-            F_4 = Utils.FormatProductF4(Convert.ToString(data["F_4"])),
+            F_4 = Convert.ToString(data["F_4"]),
             F_5 = Convert.ToString(data["F_5"]),
-            Image = data["prod_images"] != null && data["prod_images"].ToString() != "null" && !string.IsNullOrEmpty($"{data["prod_images"]}") ? string.Join(",", data["prod_images"].ToString().Split(',').Select(d => $"{baseUrl}{path}{d}").ToArray()) : null,
+            Image = data["prod_images"] != null && data["prod_images"].ToString() != "null" && !string.IsNullOrEmpty($"{data["prod_images"]}") ? string.Join(",", data["prod_images"].ToString().Split(',').Select(d => $"{baseUrl}{path}{d}").ToArray()) : "",
             Categories = data.Table.Columns.Contains("Category") ? JsonConvert.DeserializeObject<List<CategoryModel>>(Convert.ToString(data["Category"])) : null,
             Offers = data.Table.Columns.Contains("offers") ? Convert.ToString(data["offers"]) : "",
             tags = data.Table.Columns.Contains("tags") ? Convert.ToString(data["tags"]) : "",
@@ -3369,6 +3376,8 @@ public class APILogic
         public string OrderID { get; set; }
         public string Date { get; set; }
         public string image { get; set; }
+        public string trackingId { get; set; }
+        public string paymentMode { get; set; }
     }
 
     public class ProductOrder
@@ -3379,6 +3388,8 @@ public class APILogic
         public int Totality { get; set; }
         public string SalesQuotation { get; set; }
         public List<Product> Products { get; set; }
+        public string trackingId { get; set; }
+        public string paymentMode { get; set; }
     }
 
     public class ProductDetails
@@ -3428,6 +3439,7 @@ public class APILogic
         public string SalesQuotation { get; set; }
         public int Totality { get; set; }
         public string trackingId { get; set; }
+        public string paymentMode { get; set; }
         public List<ProductDetails> Productdetails { get; set; }
 
     }

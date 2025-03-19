@@ -224,7 +224,7 @@ public class BusinessLogic
             para[16] = new MySqlParameter("licenseNo", objProp.licenseNo);
             para[17] = new MySqlParameter("dob", objProp.dob);
             para[18] = new MySqlParameter("bankDetails", objProp.BankDetails);
-            para[18] = new MySqlParameter("credit_limit", objProp.credit_limit);
+            para[19] = new MySqlParameter("credit_limit", objProp.credit_limit);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
         }
         catch (Exception ex)
