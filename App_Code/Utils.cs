@@ -7,6 +7,9 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Web;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml;
 using static APILogic;
 
 /// <summary>
@@ -46,7 +49,7 @@ public class Utils
         List<string> valMessages = new List<string>();
         if (products.Any(p => p.quantity < 1))
             valMessages.Add("Quantity cannot be less than 1");
-        return Tuple.Create<bool, List<string>>(valMessages.Count == 0, valMessages);
+        return System.Tuple.Create<bool, List<string>>(valMessages.Count == 0, valMessages);
     }
 
     public static string FormatProductF4(string input)
@@ -134,5 +137,71 @@ public class Utils
             }
         }
         return obj;
+    }
+
+    public static Stream CreateExcelFromDataSet(DataSet dataSet)
+    {
+        MemoryStream stream = new MemoryStream();
+
+        using (SpreadsheetDocument document = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook))
+        {
+            WorkbookPart workbookPart = document.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook();
+            Sheets sheets = workbookPart.Workbook.AppendChild(new Sheets());
+
+            uint sheetId = 1;
+
+            foreach (DataTable table in dataSet.Tables)
+            {
+                WorksheetPart worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                SheetData sheetData = new SheetData();
+
+                // Add header row
+                Row headerRow = new Row();
+                foreach (DataColumn column in table.Columns)
+                {
+                    headerRow.Append(CreateTextCell(column.ColumnName));
+                }
+                sheetData.Append(headerRow);
+
+                // Add data rows
+                foreach (DataRow row in table.Rows)
+                {
+                    Row dataRow = new Row();
+                    foreach (var item in row.ItemArray)
+                    {
+                        dataRow.Append(CreateTextCell(item?.ToString() ?? ""));
+                    }
+                    sheetData.Append(dataRow);
+                }
+
+                worksheetPart.Worksheet = new Worksheet(sheetData);
+                worksheetPart.Worksheet.Save();
+
+                string sheetName = string.IsNullOrWhiteSpace(table.TableName) ? $"Sheet{sheetId}" : table.TableName;
+
+                Sheet sheet = new Sheet()
+                {
+                    Id = workbookPart.GetIdOfPart(worksheetPart),
+                    SheetId = sheetId++,
+                    Name = sheetName
+                };
+                sheets.Append(sheet);
+            }
+
+            workbookPart.Workbook.Save();
+        }
+
+        stream.Position = 0;
+        return stream;
+    }
+
+    private static Cell CreateTextCell(string text)
+    {
+        return new Cell
+        {
+            DataType = CellValues.String,
+            CellValue = new CellValue(text)
+        };
     }
 }

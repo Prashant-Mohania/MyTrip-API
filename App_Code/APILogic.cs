@@ -19,7 +19,6 @@ using cashfree_pg.Client;
 using cashfree_pg.Model;
 using System.Net;
 using static APILogic;
-using DocumentFormat.OpenXml;
 
 /// <summary>
 /// Summary description for BusinessLogic
@@ -120,6 +119,8 @@ public class APILogic
             case "Reorder": jsonResponse = Reorder(objProp); break;
             case "PayementRecieved": jsonResponse = PayementRecieved(objProp); break;
             case "OrderStatusUpdate": jsonResponse = OrderStatusUpdate(objProp); break;
+            //case "downloadReport": jsonResponse = downloadReport(objProp); break;
+            //case "DownloadOrderExcel": jsonResponse = DownloadOrderExcel(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -252,6 +253,7 @@ public class APILogic
                          productName = Convert.ToString(x["productName"]),
                          productImg = baseUrl + path + Convert.ToString(x["productImg"]),
                          userId = Convert.ToInt32(x["UserId"]),
+                         userName = Convert.ToString(x["UserName"]),
                          status = Convert.ToString(x["Status"]),
                          description = Convert.ToString(x["Description"]),
                          CreatedAt = Convert.ToDateTime(x["CreatedAt"]),
@@ -365,22 +367,54 @@ public class APILogic
     {
         try
         {
+            Console.WriteLine(typeof(System.Numerics.Vector2).Assembly.FullName);
             // Get the orders DataSet
             DataSet ordersDataSet = blogs.GetOrdersList(objProp);
 
             // Convert DataSet to List<Order> assuming DataSet contains Order information
             List<Order> orders = ConvertDataSetToList<Order>(ordersDataSet);
+            HttpContext.Current.Response.Clear();
+            Stream stream = Utils.CreateExcelFromDataSet(ordersDataSet);
+            HttpContext.Current.Response.ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            HttpContext.Current.Response.AddHeader("Content-Disposition", "attachment; filename=orders.xlsx");
+
+            stream.CopyTo(HttpContext.Current.Response.OutputStream);
+
+
+            return Utils.CreateExcelFromDataSet(ordersDataSet);
 
             // Instantiate ExcelExport
-            ExcelExport excelExport = new ExcelExport();
+            //ExcelExport excelExport = new ExcelExport();
 
-            // Export orders to Excel and return the Stream
-            return excelExport.DownloadExcel(orders, "orders.xlsx");
+            //// Export orders to Excel and return the Stream
+            //return excelExport.DownloadExcel(orders, "orders.xlsx");
         }
         catch (Exception ex)
         {
             Console.WriteLine("Error occurred during Excel export: " + ex.Message);
             return null;
+        }
+    }
+
+    public Stream DownloadReport(Property objProp)
+    {
+        try
+        {
+            String userId = Utils.GetEncodeValue<String>(objProp.SplitValueEncode, "userId", "");
+            if (String.IsNullOrEmpty(userId))
+            {
+                throw new Exception("Enter Valied userid");
+            }
+            DataSet ds = blogs.FetchUserReport(userId);
+            ds.Tables[0].TableName = "Purchase Report";
+            ds.Tables[1].TableName = "Return Report";
+            var file = Utils.CreateExcelFromDataSet(ds);
+
+            return file;
+        }
+        catch (Exception ex)
+        {
+            throw;
         }
     }
     private List<T> ConvertDataSetToList<T>(DataSet dataSet)
@@ -1302,9 +1336,7 @@ public class APILogic
                          dob = x["dob"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(x["dob"]),
                          BankDetails = x["bankDetails"] == null ? null : Convert.ToString(x["bankDetails"]),
                          credit_limit = Convert.ToString(x["credit_limit"]),
-                         available_limit = Convert.ToString(x["available_limit"]),
-
-
+                         available_limit = Convert.ToString(x["available_limit"])
                      });
             objProvider = c.ToList();
         }
@@ -1357,6 +1389,10 @@ public class APILogic
                         objLogin.BankDetails = dr["bankDetails"] == null ? null : Convert.ToString(dr["bankDetails"]);
                         objLogin.credit_limit = dr["credit_limit"] == null ? null : Convert.ToString(dr["credit_limit"]);
                         objLogin.available_limit = dr["available_limit"] == null ? null : Convert.ToString(dr["available_limit"]);
+                        objLogin.createdDate = dr["createdDate"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(dr["createdDate"]);
+                        objLogin.createdBy = Convert.ToString(dr["createdBy"]);
+                        objLogin.updatedDate = dr["updatedDate"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(dr["updatedDate"]);
+                        objLogin.updatedBy = Convert.ToString(dr["updatedBy"]);
                     }
                 }
                 return objLogin;
@@ -3487,6 +3523,10 @@ public class APILogic
         public string BankDetails { get; set; }
         public string credit_limit { get; set; }
         public string available_limit { get; set; }
+        public DateTime createdDate { get; set; }
+        public string createdBy { get; set; }
+        public DateTime updatedDate { get; set; }
+        public string updatedBy { get; set; }
     }
 
     public class ProductListRoot
@@ -3597,6 +3637,7 @@ public class APILogic
         public string status { get; set; } = "Pending";
         public string description { get; set; } = "";
         public int userId { get; set; }
+        public string userName { get; set; }
         public int quantity { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

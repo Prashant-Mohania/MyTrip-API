@@ -1348,7 +1348,7 @@ public class BusinessLogic
         var ds = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, $@"SELECT * FROM GiftScheme WHERE Id = {id};");
         return ds;
     }
-    
+
     public DataSet SearchProduct(string searchVal)
     {
         MySqlParameter[] para = new MySqlParameter[1];
@@ -1377,5 +1377,12 @@ public class BusinessLogic
         string query = $"update zeeorder_track set SAPOrderStatusId = {orderStatusId}, trackingId = '{trackingId}' where zl_orderID = '{orderId}'";
 
         DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+
+    public DataSet FetchUserReport(string userId)
+    {
+        MySqlParameter[] para = new MySqlParameter[1];
+        para[0] = new MySqlParameter("userId", userId);
+        return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_userReport", para);
     }
 }

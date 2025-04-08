@@ -1,6 +1,7 @@
 ﻿using RestSharp;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -37,6 +38,24 @@ public partial class drRequest : System.Web.UI.Page
                 objProp.Function = objProp.SplitValueEncode.Length > 0 ? objProp.SplitValueEncode[0].ToString().Replace("zeeTech=", "").Trim() : "";
                 objProp.Count = objProp.SplitValueEncode.Length;
                 object json = string.Empty;
+
+                if(objProp.Function == "DownloadReport")
+                {
+                    Stream stream = blog.DownloadReport(objProp);
+                    if (stream != null)
+                    {
+                        Response.Clear();
+                        Response.Cache.SetCacheability(HttpCacheability.NoCache);
+                        Response.ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                        Response.AddHeader("Content-Disposition", $"attachment; filename=orders_{DateTime.Now.Millisecond}.xlsx");
+                        
+                        // Return stream to client
+                        stream.CopyTo(Response.OutputStream);
+                        Response.Flush();
+                        HttpContext.Current.ApplicationInstance.CompleteRequest();
+                    }
+                    return;
+                }
                 json = blog.getmethod(objProp);
                 // LogWrite("Request : " + objProp.GetUrlValues + "|\r\Response : " + json.ToString(), "_ZL_Log");
                 if (IsResponseValid(objProp))

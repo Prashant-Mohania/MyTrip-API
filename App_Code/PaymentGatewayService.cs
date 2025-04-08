@@ -40,7 +40,7 @@ public class PaymentGatewayService
         Dictionary<string, object> options = new Dictionary<string, object>();
         options.Add("amount", Math.Round(amount, 2) * 100); // amount in the smallest currency unit
         options.Add("currency", "INR");
-        options.Add("receipt", $"{userName}_{userNumber}_{DateTime.Now.ToString("dd_MM_yyyy_HH:mm:ss")}");
+        options.Add("receipt", $"{userNumber}_{DateTime.Now.ToString("dd_MM_yyyy_HH:mm:ss")}");
         Order order = razorpay.Order.Create(options);
         var orderId = order["id"].ToString();
         var orderEntity = new OrderEntity();
