@@ -41,13 +41,15 @@ public class BusinessLogic
         return objProp.DataSet;
     }
 
-    public DataSet GetOrders(Property objProp)
+    public DataSet GetOrders(Property objProp, int page, int count)
     {
         try
         {
             objProp.Query = "sp_OrderList";
-            MySqlParameter[] para = new MySqlParameter[1];
+            MySqlParameter[] para = new MySqlParameter[3];
             para[0] = new MySqlParameter("_userid", objProp.UserId);
+            para[1] = new MySqlParameter("_page", page);
+            para[2] = new MySqlParameter("_count", count);
             objProp.DataSet = DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, objProp.Query, para);
 
         }

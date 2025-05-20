@@ -522,12 +522,18 @@ public class APILogic
         AddToCarts addcart = new AddToCarts();
         try
         {
-            objProp.UserId = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
-            objProp.ProductName = objProp.SplitValueEncode[2].Split('=')[1].ToString().Trim();
-            objProp.Count = Convert.ToInt32(objProp.SplitValueEncode[3].Split('=')[1].ToString().Trim());
-            objProp.mrp = objProp.SplitValueEncode[4].Split('=')[1].ToString().Trim();
-            objProp.ProductID = objProp.SplitValueEncode[5].Split('=')[1].ToString().Trim();
-            objProp.PTR = objProp.SplitValueEncode[6].Split('=')[1].ToString().Trim();
+            //objProp.UserId = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
+            objProp.UserId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "userId", "");
+            //objProp.ProductName = objProp.SplitValueEncode[2].Split('=')[1].ToString().Trim();
+            objProp.ProductName = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "ProductName", "");
+            //objProp.Count = Convert.ToInt32(objProp.SplitValueEncode[3].Split('=')[1].ToString().Trim());
+            objProp.Count = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+            //objProp.mrp = objProp.SplitValueEncode[4].Split('=')[1].ToString().Trim();
+            objProp.mrp = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "mrp", "");
+            //objProp.ProductID = objProp.SplitValueEncode[5].Split('=')[1].ToString().Trim();
+            objProp.ProductID = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "ProductId", "");
+            //objProp.PTR = objProp.SplitValueEncode[6].Split('=')[1].ToString().Trim();
+            objProp.PTR = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "ptr", "");
             if (objProp.UserId != "" && objProp.ProductName != "" && objProp.Count != 0 && objProp.mrp != "" || objProp.ProductID != "")
             {
                 objProp.DataSet = blogs.AddToCartLogic(objProp);
@@ -569,7 +575,10 @@ public class APILogic
                     return addcart;
                 }
 
-                string mode = string.IsNullOrEmpty(orderId) ? "COD" : "Online";
+                PaymentMode paymentMode = Utils.GetEncodeValue<PaymentMode>(objProp.SplitValueEncode, "paymentMode", PaymentMode.COD);
+
+
+                string mode = paymentMode.ToString();
                 objProp.DataSet = blogs.GetOrderPlace(objProp.UserId, orderId, mode);
 
                 if (objProp.DataSet.Tables[0].Rows.Count > 0)
@@ -694,7 +703,8 @@ public class APILogic
                                  OfferedProducts = Convert.ToInt32(JObject.Parse(x["Offer_Details"].ToString())["offeredproducts"]),
                                  offerQty = Convert.ToInt32(JObject.Parse(x["Offer_Details"].ToString())["offerQty"]),
                                  eligibilityQty = Convert.ToInt32(JObject.Parse(x["Offer_Details"].ToString())["eligibilityQty"]),
-                             } : null
+                             } : null,
+                         productCount = Convert.ToInt32(x["productCount"])
                      });
 
             objProvider = c.ToList();
@@ -927,13 +937,18 @@ public class APILogic
 
     public List<OrdersList> getOrderList(Property objProp)
     {
-        objProp.UserId = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
-        OrdersList objOrder = new OrdersList();
-
         List<OrdersList> objProvider = new List<OrdersList>();
-        DataSet dsProvider = blogs.GetOrders(objProp);
         try
         {
+            //objProp.UserId = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
+            objProp.UserId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "userId", "");
+            var page = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "page", 0);
+            var count = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "count", 0);
+            OrdersList objOrder = new OrdersList();
+
+            
+            DataSet dsProvider = blogs.GetOrders(objProp, page, count);
+
             DataTable dtProvider = new DataTable("OrdersList");
             dtProvider = dsProvider.Tables[0];
 
@@ -3457,6 +3472,7 @@ public class APILogic
         public decimal PTR { get; set; }
         public string ImageUrl { get; set; }
         public OfferApplied Offer_Applied { get; set; }
+        public int productCount { get; set; }
     }
     public class OrdersList
     {

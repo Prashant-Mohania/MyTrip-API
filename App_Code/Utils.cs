@@ -22,7 +22,6 @@ public class Utils
         if (encodes == null) throw new ArgumentNullException(nameof(encodes));
         if (key == null) throw new ArgumentNullException(nameof(key));
 
-        // Find the first matching key-value pair
         string encodedValue = encodes
             .FirstOrDefault(e => e.ToLower().StartsWith(key.ToLower() + "="))?
             .Substring(key.Length + 1);
@@ -34,15 +33,21 @@ public class Utils
 
         try
         {
-            // Convert the string value to the specified type T
+            if (typeof(T).IsEnum)
+            {
+                object parsed = Enum.Parse(typeof(T), encodedValue, ignoreCase: true);
+                return (T)parsed;
+            }
+
             return (T)Convert.ChangeType(encodedValue, typeof(T));
         }
         catch
         {
-            // Return defaultValue in case of any conversion error
             return defaultValue;
         }
     }
+
+
 
     public static Tuple<bool, List<string>> ValidateReturnProduct(List<ReturnProductModel> products)
     {
@@ -204,4 +209,17 @@ public class Utils
             CellValue = new CellValue(text)
         };
     }
+}
+
+
+
+// here is all the enums
+
+enum PaymentMode
+{
+    COD,
+    Online,
+    Cheque,
+    NEFTRTGS,
+    Partial
 }
