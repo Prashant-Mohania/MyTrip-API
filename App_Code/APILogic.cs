@@ -20,6 +20,7 @@ using cashfree_pg.Model;
 using System.Net;
 using static APILogic;
 
+
 /// <summary>
 /// Summary description for BusinessLogic
 /// </summary>
@@ -119,8 +120,10 @@ public class APILogic
             case "Reorder": jsonResponse = Reorder(objProp); break;
             case "PayementRecieved": jsonResponse = PayementRecieved(objProp); break;
             case "OrderStatusUpdate": jsonResponse = OrderStatusUpdate(objProp); break;
-            //case "downloadReport": jsonResponse = downloadReport(objProp); break;
-            //case "DownloadOrderExcel": jsonResponse = DownloadOrderExcel(objProp); break;
+            case "SendMail": jsonResponse = SendMail(objProp); break;
+            case "UpdateOrdersStatus": jsonResponse = UpdateOrdersStatus(objProp); break;
+                //case "downloadReport": jsonResponse = downloadReport(objProp); break;
+                //case "DownloadOrderExcel": jsonResponse = DownloadOrderExcel(objProp); break;
         }
         //JavaScriptSerializer serializer = new JavaScriptSerializer();
         //serializer.MaxJsonLength = Int32.MaxValue;
@@ -129,6 +132,44 @@ public class APILogic
         return JsonConvert.SerializeObject(jsonResponse);
     }
 
+    // send email
+    public ResponseModel<bool> SendMail(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+
+        try
+        {
+            string email = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "email", "");
+
+            EmailSend.SendEmail(email, "Testing", "tesing");
+
+            response = new ResponseModel<bool>(true, $"Mail send successfully to ${email}");
+
+        }
+        catch(Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+
+        return response;
+    }
+
+    public ResponseModel<bool> UpdateOrdersStatus(Property objProp)
+    {
+        try
+        {
+            var data = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "data", "");
+            var decodedData = JsonConvert.DeserializeObject<List<TrackingModel>>(data);
+
+            blogs.UpdateOrdersStatus(decodedData);
+
+            return new ResponseModel<bool>(true, "Tracking data processed successfully.");
+        }
+        catch (Exception ex)
+        {
+            return new ResponseModel<bool>(ex.Message);
+        }
+    }
     public List<ProductListRoot> GetFrequentlyBoughtProducts(Property objProp)
     {
         string path = ConfigurationManager.AppSettings["ProductPath"];
@@ -527,7 +568,7 @@ public class APILogic
             //objProp.ProductName = objProp.SplitValueEncode[2].Split('=')[1].ToString().Trim();
             objProp.ProductName = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "ProductName", "");
             //objProp.Count = Convert.ToInt32(objProp.SplitValueEncode[3].Split('=')[1].ToString().Trim());
-            objProp.Count = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+            objProp.Count = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "count", 0);
             //objProp.mrp = objProp.SplitValueEncode[4].Split('=')[1].ToString().Trim();
             objProp.mrp = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "mrp", "");
             //objProp.ProductID = objProp.SplitValueEncode[5].Split('=')[1].ToString().Trim();
@@ -577,9 +618,29 @@ public class APILogic
 
                 PaymentMode paymentMode = Utils.GetEncodeValue<PaymentMode>(objProp.SplitValueEncode, "paymentMode", PaymentMode.COD);
 
+                string bankName = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "bankName", "");
+                string txnOrChequeNo = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "txnOrChequeNo", "");
+                decimal txnAmount = Utils.GetEncodeValue<decimal>(objProp.SplitValueEncode, "txnAmount", 0);
+                DateTime txnDate = Utils.GetEncodeValue<DateTime>(objProp.SplitValueEncode, "txnDate", DateTime.Now);
+
+                if (paymentMode == PaymentMode.NEFTRTGS && string.IsNullOrEmpty(bankName))
+                {
+                    addcart.Result = "Payemnt Fail";
+                    return addcart;
+                }
+
+                if (
+                    ((paymentMode == PaymentMode.Cheque || paymentMode == PaymentMode.NEFTRTGS) 
+                    && (string.IsNullOrEmpty(bankName) || string.IsNullOrEmpty(txnOrChequeNo) || txnAmount < 1 || txnDate < DateTime.MinValue))
+                    )
+                {
+                    addcart.Result = "Bank Name, transection id/ Cheque No., transection Amount and Transection Date are mandatory.";
+                    return addcart;
+                }
+
 
                 string mode = paymentMode.ToString();
-                objProp.DataSet = blogs.GetOrderPlace(objProp.UserId, orderId, mode);
+                objProp.DataSet = blogs.GetOrderPlace(objProp.UserId, orderId, mode, bankName, txnOrChequeNo, txnAmount, txnDate);
 
                 if (objProp.DataSet.Tables[0].Rows.Count > 0)
                 {
@@ -895,6 +956,7 @@ public class APILogic
             objProp.emailID = objProp.SplitValueEncode[1].Split('=')[1].ToString().Trim();
             if (objProp.UserId != "")
             {
+                EmailSend.SendEmail(objProp.emailID, "Testing", "testing");
                 objProp.Password = CreateRandomPassword(10);
                 objProp.DataSet = blogs.ForgotPass(objProp);
                 if (objProp.DataSet.Tables[0].Rows.Count > 0)
@@ -946,7 +1008,7 @@ public class APILogic
             var count = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "count", 0);
             OrdersList objOrder = new OrdersList();
 
-            
+
             DataSet dsProvider = blogs.GetOrders(objProp, page, count);
 
             DataTable dtProvider = new DataTable("OrdersList");
@@ -2192,7 +2254,7 @@ public class APILogic
                 var splitedImageName = commaSplited.Select(i => i.Split('/').Last());
                 ImageUrl = string.Join(",", splitedImageName);
             }
-            
+
             if (!string.IsNullOrEmpty(ImageUrl) && images.Count() > 0) ImageUrl += ",";
 
             foreach (HttpPostedFile img in images)
@@ -3171,17 +3233,7 @@ public class APILogic
                 return response;
             }
 
-            if (string.IsNullOrEmpty(userName))
-            {
-                response = new ResponseModel<Dictionary<string, string>>("userName is required");
-                return response;
-            }
-
-            if (string.IsNullOrEmpty(userNumber))
-            {
-                response = new ResponseModel<Dictionary<string, string>>("userNumber is required");
-                return response;
-            }
+            
 
             if (amount < 1)
             {
@@ -3359,6 +3411,50 @@ public class APILogic
         {
             return new ResponseModel<bool>(ex.Message);
         }
+    }
+
+    public ResponseModel<List<OrdersList>> GetMissinTxnIdOrders(Property objProp)
+    {
+        ResponseModel<List<OrdersList>> response = null;
+
+        try
+        {
+            int userId = Utils.GetEncodeValue<int>(objProp.SplitValueEncode, "userId", 0);
+
+            if(userId == 0)
+            {
+                return new ResponseModel<List<OrdersList>>("userId is mandatory.");
+            }
+
+
+
+        }
+        catch(Exception ex)
+        {
+            response = new ResponseModel<List<OrdersList>>(ex.Message);
+        }
+
+        return response;
+    }
+    public ResponseModel<bool> UpdateOrderBankTxnId(Property objProp)
+    {
+        ResponseModel<bool> response = null;
+
+        try
+        {
+            string orderId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "orderId", string.Empty);
+            string txnId = Utils.GetEncodeValue<string>(objProp.SplitValueEncode, "txnId", string.Empty);
+
+            blogs.UpdateOrderBankTxnId(orderId, txnId);
+
+            response = new ResponseModel<bool>(true, "");
+        }
+        catch(Exception ex)
+        {
+            response = new ResponseModel<bool>(ex.Message);
+        }
+
+        return response;
     }
 
     private ProductListRoot MapProductList(DataRow data, string baseUrl, string path)
@@ -3709,5 +3805,14 @@ public class APILogic
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 
+    }
+
+    public class TrackingModel
+    {
+        public string OrderRef { get; set; }
+        public string SaleOrder { get; set; }
+        public string Transporter { get; set; }
+        public string Docket { get; set; }
+        public string Url { get; set; }
     }
 }

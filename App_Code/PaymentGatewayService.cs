@@ -38,7 +38,7 @@ public class PaymentGatewayService
 
         RazorpayClient razorpay = new RazorpayClient("rzp_test_Wjfu0851PseHOO", "JK5790o4LjQh3y0J8eQMggyV"); // Test Razorpay
         Dictionary<string, object> options = new Dictionary<string, object>();
-        options.Add("amount", Math.Round(amount, 2) * 100); // amount in the smallest currency unit
+        options.Add("amount", Math.Round(amount, 0) * 100); // amount in the smallest currency unit
         options.Add("currency", "INR");
         options.Add("receipt", $"{userNumber}_{DateTime.Now.ToString("dd_MM_yyyy_HH:mm:ss")}");
         Order order = razorpay.Order.Create(options);

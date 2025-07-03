@@ -1,4 +1,5 @@
 ﻿using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
 using MySql.Data.MySqlClient;
@@ -144,13 +145,23 @@ public class BusinessLogic
         }
         return objProp.DataSet;
     }
-    public DataSet GetOrderPlace(string userId, string orderId, string mode)
+    public DataSet GetOrderPlace(string userId, string orderId, string mode, string bankName, string txnOrChequeNo, decimal txnAmount, DateTime txnDate)
     {
         string query = "sp_zlOrderPlace";
-        MySqlParameter[] para = new MySqlParameter[3];
+        MySqlParameter[] para = new MySqlParameter[7];
         para[0] = new MySqlParameter("_userid", userId);
         para[1] = new MySqlParameter("_order_Id", orderId);
         para[2] = new MySqlParameter("_mode", mode);
+        para[3] = new MySqlParameter("_bankName", bankName);
+        para[4] = new MySqlParameter("_txnOrChequeNo", txnOrChequeNo);
+        para[5] = new MySqlParameter("_txnAmount", MySqlDbType.Decimal)
+        {
+            Value = txnAmount
+        };
+        para[6] = new MySqlParameter("_txnDate", MySqlDbType.Date)
+        {
+            Value = txnDate
+        };
         return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, query, para);
     }
 
@@ -1386,5 +1397,26 @@ public class BusinessLogic
         MySqlParameter[] para = new MySqlParameter[1];
         para[0] = new MySqlParameter("userId", userId);
         return DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.StoredProcedure, "sp_userReport", para);
+    }
+
+    public void UpdateOrderBankTxnId(string orderId, string txnId)
+    {
+        string query = $"update zeeorder_details set transaction_id = {txnId} where zl_order_ID = '{orderId}'";
+
+        DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
+    }
+    
+    public void UpdateOrdersStatus(List<TrackingModel> data)
+    {
+        foreach(TrackingModel model in data)
+        {
+            string orderId = model.OrderRef;
+            string trackingUrl = model.Url;
+            string carrier = model.Transporter;
+
+            string updateSql = $"UPDATE zeeorder_track SET trackingId = '{trackingUrl}', carrier = '{carrier}' WHERE zl_orderID = '{orderId}'";
+
+            DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, updateSql);
+        }
     }
 }
