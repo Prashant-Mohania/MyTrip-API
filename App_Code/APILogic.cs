@@ -1,24 +1,25 @@
-﻿using Newtonsoft.Json;
+﻿using cashfree_pg.Client;
+using cashfree_pg.Model;
+using DocumentFormat.OpenXml.Drawing.Charts;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Web;
 using System.Web.UI.WebControls;
-using Newtonsoft.Json.Linq;
-using System.Collections;
-using System.Threading.Tasks;
-using DocumentFormat.OpenXml.Drawing.Charts;
+using static APILogic;
 using DataTable = System.Data.DataTable;
 using Formatting = Newtonsoft.Json.Formatting;
 using Path = System.IO.Path;
-using cashfree_pg.Client;
-using cashfree_pg.Model;
-using System.Net;
-using static APILogic;
 
 
 /// <summary>
@@ -1691,90 +1692,105 @@ public class APILogic
 
             var response = client.Execute(request);
 
+            string itemJson = response.Content;
+            objProp.JsonArray = itemJson;
+            objProp.JsonArrayRequest = objectTosend;
+
+            Match match = Regex.Match(response.Content, @"\d+");
+
+            if (match.Success)
+            {
+                objProp.SalesQuotationNumber = match.Value;
+            }
+            else
+            {
+                objProp.SalesQuotationNumber = "";
+            }
+
         }
-        //else
-        //{
-        //    var client = new RestClient();
-        //    var request = new RestRequest("http://122.187.28.27:81/api/SalesQuotionPostAPI", Method.Post);
-        //    request.AddHeader("Content-Type", "application/json");
-        //    JObject jObjectbody = new JObject();
-        //    JArray childItems = new JArray();
+        else
+        {
+            var client = new RestClient();
+            var request = new RestRequest("http://122.187.28.27:81/api/SalesQuotionPostAPI", Method.Post);
+            request.AddHeader("Content-Type", "application/json");
+            JObject jObjectbody = new JObject();
+            JArray childItems = new JArray();
 
-        //    jObjectbody.Add("OrderNo", objProvider.OrderId);
-        //    jObjectbody.Add("OrderDate", string.Format("{0:yyyyMMdd}", objProvider.OrderDate));
-        //    jObjectbody.Add("PaymentMode", objProvider.PaymentMode);
-        //    jObjectbody.Add("CustomerDetail", objProvider.FirstName);
-        //    jObjectbody.Add("customeremailid", objProvider.Email);
-        //    jObjectbody.Add("MobileNo", objProvider.Mobile);
-        //    jObjectbody.Add("Street", objProvider.Address);
-        //    jObjectbody.Add("Block", "");
-        //    jObjectbody.Add("Country", "");
-        //    jObjectbody.Add("City", objProvider.City);
-        //    jObjectbody.Add("State", objProvider.State);
-        //    jObjectbody.Add("ZipCode", objProvider.ZipCode);
-        //    jObjectbody.Add("Discount_percentage", 0);
-        //    jObjectbody.Add("ShippingCharge", 0);
+            jObjectbody.Add("OrderNo", objProvider.OrderId);
+            jObjectbody.Add("OrderDate", string.Format("{0:yyyyMMdd}", objProvider.OrderDate));
+            jObjectbody.Add("PaymentMode", objProvider.PaymentMode);
+            jObjectbody.Add("CustomerDetail", objProvider.FirstName);
+            jObjectbody.Add("customeremailid", objProvider.Email);
+            jObjectbody.Add("MobileNo", objProvider.Mobile);
+            jObjectbody.Add("Street", objProvider.Address);
+            jObjectbody.Add("Block", "");
+            jObjectbody.Add("Country", "");
+            jObjectbody.Add("City", objProvider.City);
+            jObjectbody.Add("State", objProvider.State);
+            jObjectbody.Add("ZipCode", objProvider.ZipCode);
+            jObjectbody.Add("Discount_percentage", 0);
+            jObjectbody.Add("ShippingCharge", 0);
 
-        //    foreach (var item in objProvider.UserOrderListItems)
-        //    {
-        //        JObject itemObject = new JObject();
-        //        itemObject.Add("itemCode", item.ItemCode);
-        //        itemObject.Add("qty", item.Quantity);
-        //        itemObject.Add("unitPrice", item.Mrp);
-        //        childItems.Add(itemObject);
-        //        if (item.OfferdQty > 0)
-        //        {
-        //            itemObject = new JObject();
-        //            itemObject.Add("itemCode", item.ItemCode);
-        //            itemObject.Add("qty", item.OfferdQty);
-        //            itemObject.Add("unitPrice", 0);
-        //            childItems.Add(itemObject);
-        //        }
-        //    }
+            foreach (var item in objProvider.UserOrderListItems)
+            {
+                JObject itemObject = new JObject();
+                itemObject.Add("itemCode", item.ItemCode);
+                itemObject.Add("qty", item.Quantity);
+                itemObject.Add("unitPrice", item.Mrp);
+                childItems.Add(itemObject);
+                if (item.OfferdQty > 0)
+                {
+                    itemObject = new JObject();
+                    itemObject.Add("itemCode", item.ItemCode);
+                    itemObject.Add("qty", item.OfferdQty);
+                    itemObject.Add("unitPrice", 0);
+                    childItems.Add(itemObject);
+                }
+            }
 
-        //    jObjectbody["childs"] = childItems;
-        //    string objectTosend = jObjectbody.ToString(Formatting.None);
+            jObjectbody["childs"] = childItems;
+            string objectTosend = jObjectbody.ToString(Formatting.None);
 
-        //    request.AddParameter("application/json", objectTosend, ParameterType.RequestBody);
+            request.AddParameter("application/json", objectTosend, ParameterType.RequestBody);
 
-        //    var response = client.Execute(request);
-        //    string trimmedContent = response.Content.Trim(' ', '[', ']');
-        //    string itemJson = response.Content;
-        //    objProp.JsonArray = itemJson;
-        //    objProp.JsonArrayRequest = objectTosend;
+            var response = client.Execute(request);
+            string trimmedContent = response.Content.Trim(' ', '[', ']');
+            string itemJson = response.Content;
+            objProp.JsonArray = itemJson;
+            objProp.JsonArrayRequest = objectTosend;
 
-        //    // If response content has JSON then if block will execute.
-        //    if (trimmedContent.StartsWith("{") && trimmedContent.EndsWith("}"))
-        //    {
-        //        ResponseData ObjRoot = JsonConvert.DeserializeObject<List<ResponseData>>(itemJson).FirstOrDefault();
-        //        objProp.SalesQuotationNumber = ObjRoot.SalesQuotationNumber;
-        //    }
-        //    else
-        //    {
-        //        objProp.SalesQuotationNumber = "";
-        //    }
-        //}
-        //try
-        //{
-        //    objProp.DataSet = blogs.SendOrderToSap(objProp);
-        //    if (objProp.DataSet.Tables[0].Rows.Count > 0)
-        //    {
-        //        if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
-        //        {
+            // If response content has JSON then if block will execute.
+            if (trimmedContent.StartsWith("{") && trimmedContent.EndsWith("}"))
+            {
+                ResponseData ObjRoot = JsonConvert.DeserializeObject<List<ResponseData>>(itemJson).FirstOrDefault();
+                objProp.SalesQuotationNumber = ObjRoot.SalesQuotationNumber;
+            }
+            else
+            {
+                objProp.SalesQuotationNumber = "";
+            }
+        }
+        try
+        {
+            objProp.DataSet = blogs.SendOrderToSap(objProp);
+            if (objProp.DataSet.Tables[0].Rows.Count > 0)
+            {
+                if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
+                {
 
-        //            addcart.Status = "Success";
-        //            addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
-        //        }
-        //        else
-        //        {
+                    addcart.Status = "Success";
+                    addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
+                }
+                else
+                {
 
-        //            addcart.Status = "Fail";
-        //            addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
-        //        }
-        //    }
-        //}
-        //catch (Exception ex)
-        //{ addcart.Result = ex.Message; }
+                    addcart.Status = "Fail";
+                    addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
+                }
+            }
+        }
+        catch (Exception ex)
+        { addcart.Result = ex.Message; }
         return addcart;
     }
 
