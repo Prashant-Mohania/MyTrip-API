@@ -1634,7 +1634,8 @@ public class APILogic
                                     ItemCode = Convert.ToString(x["itemCode"]),
                                     Quantity = Convert.ToInt32(x["qty"]),
                                     Mrp = Convert.ToDecimal(x["unitPrice"]),
-                                    OfferdQty = Convert.ToInt32(x["OfferdQty"])
+                                    OfferdQty = Convert.ToInt32(x["OfferdQty"]),
+                                    gst = Convert.ToInt32(x["gst"])
                                 }).ToList();
 
             DataTable dtProvider = new DataTable("UserOrdersList");
@@ -1652,6 +1653,7 @@ public class APILogic
                                State = Convert.ToString(x["State"]),
                                ZipCode = Convert.ToString(x["ZipCode"]),
                                PaymentMode = Convert.ToString(x["StoreCode"]),
+                               StoreCode = Convert.ToString(x["StoreCode"]),
                                UserOrderListItems = itemListData
                            }).FirstOrDefault();
 
@@ -1662,86 +1664,117 @@ public class APILogic
         }
 
 
-        var client = new RestClient();
-        var request = new RestRequest("http://122.187.28.27:81/api/SalesQuotionPostAPI", Method.Post);
-        request.AddHeader("Content-Type", "application/json");
-        JObject jObjectbody = new JObject();
-        JArray childItems = new JArray();
-
-        jObjectbody.Add("OrderNo", objProvider.OrderId);
-        jObjectbody.Add("OrderDate", string.Format("{0:yyyyMMdd}", objProvider.OrderDate));
-        jObjectbody.Add("PaymentMode", objProvider.PaymentMode);
-        jObjectbody.Add("CustomerDetail", objProvider.FirstName);
-        jObjectbody.Add("customeremailid", objProvider.Email);
-        jObjectbody.Add("MobileNo", objProvider.Mobile);
-        jObjectbody.Add("Street", objProvider.Address);
-        jObjectbody.Add("Block", "");
-        jObjectbody.Add("Country", "");
-        jObjectbody.Add("City", objProvider.City);
-        jObjectbody.Add("State", objProvider.State);
-        jObjectbody.Add("ZipCode", objProvider.ZipCode);
-        jObjectbody.Add("Discount_percentage", 0);
-        jObjectbody.Add("ShippingCharge", 0);
-
-        foreach (var item in objProvider.UserOrderListItems)
+        if (objProvider.State == "Uttar Pradesh")
         {
-            JObject itemObject = new JObject();
-            itemObject.Add("itemCode", item.ItemCode);
-            itemObject.Add("qty", item.Quantity);
-            itemObject.Add("unitPrice", item.Mrp);
-            childItems.Add(itemObject);
-            if (item.OfferdQty > 0)
+            var client = new RestClient();
+            var request = new RestRequest("http://122.187.28.26:1144/localapi/api/Trans/zlpOrd", Method.Post);
+
+            JArray orderObjects = new JArray();
+            foreach (var item in objProvider.UserOrderListItems)
             {
-                itemObject = new JObject();
-                itemObject.Add("itemCode", item.ItemCode);
-                itemObject.Add("qty", item.OfferdQty);
-                itemObject.Add("unitPrice", 0);
-                childItems.Add(itemObject);
+                JObject itemObject = new JObject();
+                itemObject.Add("ordId", objProvider.OrderId);
+                itemObject.Add("storeId", objProvider.StoreCode);
+                itemObject.Add("ordDate", objProvider.OrderDate);
+                itemObject.Add("ECode", objProvider.UserOrderListItems.IndexOf(item) + 1);
+                itemObject.Add("itemId", item.ItemCode);
+                itemObject.Add("quantity", item.Quantity);
+                itemObject.Add("freeQty", item.OfferdQty);
+                itemObject.Add("rate", item.Mrp);
+                itemObject.Add("gstRate", item.gst);
+                itemObject.Add("mrp", item.Mrp);
+                orderObjects.Add(itemObject);
             }
+            string objectTosend = orderObjects.ToString(Formatting.None);
+
+            request.AddParameter("application/json", objectTosend, ParameterType.RequestBody);
+
+            var response = client.Execute(request);
+
         }
+        //else
+        //{
+        //    var client = new RestClient();
+        //    var request = new RestRequest("http://122.187.28.27:81/api/SalesQuotionPostAPI", Method.Post);
+        //    request.AddHeader("Content-Type", "application/json");
+        //    JObject jObjectbody = new JObject();
+        //    JArray childItems = new JArray();
 
-        jObjectbody["childs"] = childItems;
-        string objectTosend = jObjectbody.ToString(Formatting.None);
+        //    jObjectbody.Add("OrderNo", objProvider.OrderId);
+        //    jObjectbody.Add("OrderDate", string.Format("{0:yyyyMMdd}", objProvider.OrderDate));
+        //    jObjectbody.Add("PaymentMode", objProvider.PaymentMode);
+        //    jObjectbody.Add("CustomerDetail", objProvider.FirstName);
+        //    jObjectbody.Add("customeremailid", objProvider.Email);
+        //    jObjectbody.Add("MobileNo", objProvider.Mobile);
+        //    jObjectbody.Add("Street", objProvider.Address);
+        //    jObjectbody.Add("Block", "");
+        //    jObjectbody.Add("Country", "");
+        //    jObjectbody.Add("City", objProvider.City);
+        //    jObjectbody.Add("State", objProvider.State);
+        //    jObjectbody.Add("ZipCode", objProvider.ZipCode);
+        //    jObjectbody.Add("Discount_percentage", 0);
+        //    jObjectbody.Add("ShippingCharge", 0);
 
-        request.AddParameter("application/json", objectTosend, ParameterType.RequestBody);
+        //    foreach (var item in objProvider.UserOrderListItems)
+        //    {
+        //        JObject itemObject = new JObject();
+        //        itemObject.Add("itemCode", item.ItemCode);
+        //        itemObject.Add("qty", item.Quantity);
+        //        itemObject.Add("unitPrice", item.Mrp);
+        //        childItems.Add(itemObject);
+        //        if (item.OfferdQty > 0)
+        //        {
+        //            itemObject = new JObject();
+        //            itemObject.Add("itemCode", item.ItemCode);
+        //            itemObject.Add("qty", item.OfferdQty);
+        //            itemObject.Add("unitPrice", 0);
+        //            childItems.Add(itemObject);
+        //        }
+        //    }
 
-        var response = client.Execute(request);
-        string trimmedContent = response.Content.Trim(' ', '[', ']');
-        string itemJson = response.Content;
-        objProp.JsonArray = itemJson;
-        objProp.JsonArrayRequest = objectTosend;
+        //    jObjectbody["childs"] = childItems;
+        //    string objectTosend = jObjectbody.ToString(Formatting.None);
 
-        // If response content has JSON then if block will execute.
-        if (trimmedContent.StartsWith("{") && trimmedContent.EndsWith("}"))
-        {
-            ResponseData ObjRoot = JsonConvert.DeserializeObject<List<ResponseData>>(itemJson).FirstOrDefault();
-            objProp.SalesQuotationNumber = ObjRoot.SalesQuotationNumber;
-        }
-        else
-        {
-            objProp.SalesQuotationNumber = "";
-        }
-        try
-        {
-            objProp.DataSet = blogs.SendOrderToSap(objProp);
-            if (objProp.DataSet.Tables[0].Rows.Count > 0)
-            {
-                if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
-                {
+        //    request.AddParameter("application/json", objectTosend, ParameterType.RequestBody);
 
-                    addcart.Status = "Success";
-                    addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
-                }
-                else
-                {
+        //    var response = client.Execute(request);
+        //    string trimmedContent = response.Content.Trim(' ', '[', ']');
+        //    string itemJson = response.Content;
+        //    objProp.JsonArray = itemJson;
+        //    objProp.JsonArrayRequest = objectTosend;
 
-                    addcart.Status = "Fail";
-                    addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
-                }
-            }
-        }
-        catch (Exception ex)
-        { addcart.Result = ex.Message; }
+        //    // If response content has JSON then if block will execute.
+        //    if (trimmedContent.StartsWith("{") && trimmedContent.EndsWith("}"))
+        //    {
+        //        ResponseData ObjRoot = JsonConvert.DeserializeObject<List<ResponseData>>(itemJson).FirstOrDefault();
+        //        objProp.SalesQuotationNumber = ObjRoot.SalesQuotationNumber;
+        //    }
+        //    else
+        //    {
+        //        objProp.SalesQuotationNumber = "";
+        //    }
+        //}
+        //try
+        //{
+        //    objProp.DataSet = blogs.SendOrderToSap(objProp);
+        //    if (objProp.DataSet.Tables[0].Rows.Count > 0)
+        //    {
+        //        if (objProp.DataSet.Tables[0].Rows[0]["id"].ToString() == "Y")
+        //        {
+
+        //            addcart.Status = "Success";
+        //            addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
+        //        }
+        //        else
+        //        {
+
+        //            addcart.Status = "Fail";
+        //            addcart.Result = objProp.DataSet.Tables[0].Rows[0]["desc"].ToString();
+        //        }
+        //    }
+        //}
+        //catch (Exception ex)
+        //{ addcart.Result = ex.Message; }
         return addcart;
     }
 
@@ -3697,6 +3730,7 @@ public class APILogic
         public string PaymentMode { get; set; }
         public string DiscountPercentage { get; set; }
         public string ShippingCharge { get; set; }
+        public string StoreCode { get; set; }
     }
     public class ItemList
     {
@@ -3704,6 +3738,7 @@ public class APILogic
         public int Quantity { get; set; }
         public decimal Mrp { get; set; }
         public int OfferdQty { get; set; }
+        public int gst { get; set; }
     }
     public class ResponseData
     {

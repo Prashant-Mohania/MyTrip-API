@@ -1,13 +1,11 @@
-﻿using Newtonsoft.Json;
+﻿using MySql.Data.MySqlClient;
+using Newtonsoft.Json;
 using RestSharp;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using System.Configuration;
 using System.Text;
-using System.Web;
-using System.Web.UI;
-using System.Web.UI.WebControls;
 using static APILogic;
 
 public partial class ProductList : System.Web.UI.Page
@@ -26,6 +24,7 @@ public partial class ProductList : System.Web.UI.Page
         var request = new RestRequest("http://122.187.28.27:81/api/ItemDetailsGetApi", Method.Get);
         var response = client.Execute(request);
         string itemJson = response.Content;
+
         try
         {
             ArrayList testarray = JsonConvert.DeserializeObject<ArrayList>(itemJson);
@@ -69,6 +68,108 @@ public partial class ProductList : System.Web.UI.Page
         catch (Exception ex)
         { addcart.Result = "2"; }
 
+        try
+        {
+            var lucknowRequest = new RestRequest("http://122.187.28.26:1144/localapi/api/items/cfaStock", Method.Get);
+            var lucknowResponse = client.Execute(lucknowRequest);
+            string lucknowJson = lucknowResponse.Content;
+
+            List<LucknowProduct> lucknowProducts = JsonConvert.DeserializeObject<List<LucknowProduct>>(lucknowJson);
+
+            if(lucknowProducts != null && lucknowProducts.Count > 0)
+            {
+                foreach(var product in lucknowProducts)
+                {
+                    if (!string.IsNullOrEmpty(product.ItemId))
+                    {
+                        blogs.UpdateProductStock(product.ItemId, product.Quantity);
+                    }
+                }
+            }
+        }
+        catch(Exception ex)
+        {
+            addcart.Result = "2";
+        }
+
+    }
+
+    public void UpdateLucknowProductQty()
+    {
+        try
+        {
+            var client = new RestClient();
+            var request = new RestRequest("http://122.187.28.26:1144/localapi/api/items/cfaStock", Method.Get);
+            var response = client.Execute(request);
+            string itemJson = response.Content;
+
+            List<LucknowProduct> productList = JsonConvert.DeserializeObject<List<LucknowProduct>>(itemJson);
+
+            if (productList?.Count > 0)
+            {
+                BulkUpdateLucknowQuantities(productList);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error updating product quantities: " + ex.Message);
+        }
+    }
+
+    private void BulkUpdateLucknowQuantities(List<LucknowProduct> products)
+    {
+        var connStr = ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString();
+
+        using (MySqlConnection conn = new MySqlConnection(connStr))
+        {
+            conn.Open();
+
+            // Build the UPDATE query using CASE WHEN
+            StringBuilder queryBuilder = new StringBuilder();
+            queryBuilder.Append("UPDATE productlist SET lucknowQty = CASE ItemCode ");
+
+            List<MySqlParameter> parameters = new List<MySqlParameter>();
+            int i = 0;
+
+            foreach (var item in products)
+            {
+                string paramCode = "@code" + i;
+                string paramQty = "@qty" + i;
+
+                queryBuilder.Append($"WHEN {paramCode} THEN {paramQty} ");
+
+                parameters.Add(new MySqlParameter(paramCode, item.ItemId));
+                parameters.Add(new MySqlParameter(paramQty, Convert.ToInt32(item.Quantity)));
+
+                i++;
+            }
+
+            queryBuilder.Append("END WHERE ItemCode IN (");
+
+            for (int j = 0; j < i; j++)
+            {
+                queryBuilder.Append("@code" + j);
+                if (j < i - 1) queryBuilder.Append(", ");
+            }
+
+            queryBuilder.Append(");");
+
+            using (MySqlCommand cmd = new MySqlCommand(queryBuilder.ToString(), conn))
+            {
+                cmd.Parameters.AddRange(parameters.ToArray());
+                cmd.ExecuteNonQuery();
+            }
+        }
+    }
+
+
+    public class LucknowProduct
+    {
+        public string StoreId { get; set; }
+        public string ItemId { get; set; }
+        public string ItemName { get; set; }
+        public string Unit { get; set; }
+        public int Quantity { get; set; }
     }
 
     public class Root

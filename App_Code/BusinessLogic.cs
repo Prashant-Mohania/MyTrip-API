@@ -1414,9 +1414,16 @@ public class BusinessLogic
             string trackingUrl = model.Url;
             string carrier = model.Transporter;
 
-            string updateSql = $"UPDATE zeeorder_track SET trackingId = '{trackingUrl}', carrier = '{carrier}' WHERE zl_orderID = '{orderId}'";
+            string updateSql = $"UPDATE zeeorder_track SET trackingId = '{trackingUrl}', carrier = '{carrier}', SAPOrderStatusId = 2 WHERE zl_orderID = '{orderId}'";
 
             DataLayer.ExecuteDataset(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, updateSql);
         }
+    }
+
+
+    public void UpdateProductStock(string itemCode, int quantity)
+    {
+        string query = $@"UPDATE SET LucknowQuantity = {quantity} WHERE ItemCode = {itemCode};";
+        DataLayer.ExecuteNonQuery(ConfigurationManager.ConnectionStrings["zlconnstrng"].ToString(), CommandType.Text, query);
     }
 }
